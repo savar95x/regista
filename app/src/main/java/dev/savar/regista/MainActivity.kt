@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
         openMatch = intent?.getStringExtra(Reminders.EXTRA_MATCH)
         setContent {
             RegistaTheme {
-                RegistaRoot(openMatch) { openMatch = null }
+                RegistaRoot(openMatch, onMatchOpened = { openMatch = null })
             }
         }
     }
