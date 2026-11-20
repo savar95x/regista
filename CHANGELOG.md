@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.3] - 2026-11-21
+
+- Lighter icon: an open whistle (a single line for the mouthpiece instead of a solid block). The notification
+  icon matches.
+
 ## [0.4.2] - 2026-11-20
 
 - Updates are back to the card on Up next (and the row in Settings); no more pop-up.
