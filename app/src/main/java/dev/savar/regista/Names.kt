@@ -81,11 +81,18 @@ object Names {
         "turkiye" to "turkey",
     )
 
-    fun norm(s: String): String {
-        val noAccents = Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+    private val MARKS = Regex("\\p{Mn}+")
+    private val NON_ALNUM = Regex("[^a-z0-9]+")
+    private val normCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val canonCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    fun norm(s: String): String = normCache.getOrPut(s) { computeNorm(s) }
+
+    private fun computeNorm(s: String): String {
+        val noAccents = Normalizer.normalize(s, Normalizer.Form.NFD).replace(MARKS, "")
         return noAccents.lowercase()
             .replace('&', ' ')
-            .replace(Regex("[^a-z0-9]+"), " ")
+            .replace(NON_ALNUM, " ")
             .trim()
             .split(' ')
             .filter { it.isNotEmpty() && it !in FILLER }
@@ -93,9 +100,9 @@ object Names {
             .ifEmpty { noAccents.lowercase().trim() }
     }
 
-    fun canonical(s: String): String {
+    fun canonical(s: String): String = canonCache.getOrPut(s) {
         val n = norm(s)
-        return ALIASES[n] ?: n
+        ALIASES[n] ?: n
     }
 
     fun same(a: String, b: String) = canonical(a) == canonical(b)

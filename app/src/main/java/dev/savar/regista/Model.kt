@@ -13,7 +13,7 @@ data class Team(
     val nation: Boolean = false,
 ) {
     /** Name-based identity that survives switching data sources (see [Names.canonical]). */
-    val key: String get() = Names.canonical(name)
+    val key: String by lazy(LazyThreadSafetyMode.PUBLICATION) { Names.canonical(name) }
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("short", short).put("abbr", abbr).put("logo", logo).put("nation", nation)

@@ -35,7 +35,12 @@ data class RuleConfig(
     val eloTopN: Int = 20,
     val eloRanks: Map<String, Int> = emptyMap(),
     val muted: Set<String> = emptySet(),
-)
+) {
+    internal val bigKeys: Set<String> by lazy { bigTeams.mapTo(HashSet()) { it.key } }
+    internal val bigIds: Set<String> by lazy { bigTeams.mapNotNullTo(HashSet()) { it.id.ifEmpty { null } } }
+    internal val followById: Map<String, Follow> by lazy { follows.filter { it.team.id.isNotEmpty() }.associateBy { it.team.id } }
+    internal val followByKey: Map<String, Follow> by lazy { follows.associateBy { it.team.key } }
+}
 
 object Rules {
 
@@ -116,16 +121,13 @@ object Rules {
     }
 
     fun isBig(t: Team, cfg: RuleConfig): Boolean {
-        val key = t.key
-        if (cfg.bigTeams.any { (it.id.isNotEmpty() && it.id == t.id) || it.key == key }) return true
+        if (t.id in cfg.bigIds || t.key in cfg.bigKeys) return true
         if (!t.nation && cfg.eloTopN > 0) {
             val rank = Elo.rankOf(t, cfg.eloRanks)
             if (rank != null && rank <= cfg.eloTopN) return true
         }
         return false
     }
-
-    private fun follows(f: Follow, t: Team) = (f.team.id.isNotEmpty() && f.team.id == t.id) || f.team.key == t.key
 
     /** Reasons this match is in Up next, most specific first. Empty = not relevant. Muting is handled by callers. */
     fun reasons(m: Match, cfg: RuleConfig): List<Reason> {
@@ -136,7 +138,7 @@ object Rules {
         val bothBig = isBig(m.home, cfg) && isBig(m.away, cfg)
 
         for (side in listOf(m.home, m.away)) {
-            val f = cfg.follows.firstOrNull { follows(it, side) } ?: continue
+            val f = cfg.followById[side.id] ?: cfg.followByKey[side.key] ?: continue
             val opponent = if (side === m.home) m.away else m.home
             when (f.mode) {
                 FollowMode.ALL -> out += Reason.Following(f.team)

@@ -199,7 +199,7 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
             Group("Strongest clubs") {
                 item {
                     Pad {
-                        Text("Also count Europe's top clubs by Elo rating", style = MaterialTheme.typography.bodyLarge)
+                        Text("Europe's top clubs by Elo", style = MaterialTheme.typography.bodyLarge)
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Updated daily from clubelo.com, so in-form clubs count even if they aren't on your list.",
@@ -207,7 +207,7 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(12.dp))
-                        Segmented(listOf(0, 10, 20, 30, 50), s.eloTopN, { if (it == 0) "Off" else "Top $it" }) { n ->
+                        Segmented(listOf(0, 10, 20, 30, 50), s.eloTopN, { if (it == 0) "Off" else "$it" }) { n ->
                             Store.updateSettings(ctx) { it.copy(eloTopN = n) }
                             if (n > 0 && Store.eloRanks.isEmpty()) Sync.syncNow(ctx)
                         }

@@ -97,33 +97,59 @@ object Reminders {
             .take(MAX_ALARMS)
     }
 
-    /** Recomputes and replaces every alarm. Cheap; called after every sync and settings change. */
+    private val worker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "reminders").apply { isDaemon = true } }
+    private val pending = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** Coalesced background reschedule: a burst of setting changes costs one pass. */
+    fun rescheduleAsync(ctx: Context) {
+        val app = ctx.applicationContext
+        if (!pending.compareAndSet(false, true)) return
+        worker.execute {
+            pending.set(false)
+            runCatching { reschedule(app) }
+        }
+    }
+
+    /**
+     * Brings alarms in line with the plan. Each alarm is an IPC to system_server, so only alarms that are new or
+     * whose time changed are (re)set, and only dropped ones are cancelled. Stored as "match|lead@time".
+     */
     @Synchronized
     fun reschedule(ctx: Context) {
         Store.load(ctx)
         val am = ctx.getSystemService(AlarmManager::class.java) ?: return
         val prefs = ctx.getSharedPreferences("alarms", Context.MODE_PRIVATE)
-        val previous = prefs.getStringSet("keys", emptySet())!!.toSet()
         val exact = canExact(ctx)
-        val plan = plan()
-        val now = HashSet<String>()
-        for ((m, lead, at) in plan) {
+        // A change in exact-alarm permission means every alarm must be set again with the other API.
+        val sameMode = prefs.getBoolean("exact", exact) == exact
+        val previous: Map<String, Long> = prefs.getStringSet("set", emptySet())!!.mapNotNull { s ->
+            val at = s.substringAfterLast('@').toLongOrNull() ?: return@mapNotNull null
+            s.substringBeforeLast('@') to at
+        }.toMap()
+        val wanted = LinkedHashMap<String, Triple<Match, Lead, Long>>()
+        plan().forEach { wanted[key(it.first.id, it.second)] = it }
+
+        for ((k, item) in wanted) {
+            val (m, lead, at) = item
+            if (sameMode && previous[k] == at) continue
             val pi = alarmIntent(ctx, m.id, lead, m.kickoff)
             try {
                 if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
                 else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-                now += key(m.id, lead)
             } catch (e: SecurityException) {
                 am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-                now += key(m.id, lead)
             }
         }
-        for (k in previous - now) {
-            val (id, leadKey) = k.substringBeforeLast('|') to k.substringAfterLast('|')
-            val lead = Lead.entries.firstOrNull { it.key == leadKey } ?: continue
+        for (k in previous.keys - wanted.keys) {
+            val id = k.substringBeforeLast('|')
+            val lead = Lead.entries.firstOrNull { it.key == k.substringAfterLast('|') } ?: continue
             am.cancel(alarmIntent(ctx, id, lead, 0))
         }
-        prefs.edit().putStringSet("keys", now).apply()
+        prefs.edit()
+            .putStringSet("set", wanted.mapTo(HashSet()) { (k, v) -> "$k@${v.third}" })
+            .putBoolean("exact", exact)
+            .remove("keys")
+            .apply()
     }
 
     /** Called by the alarm. Re-checks the match is still on, still relevant and still at that time. */
@@ -219,8 +245,16 @@ class ReminderReceiver : BroadcastReceiver() {
 /** Alarms don't survive reboots or app updates; time zone changes shift them. Rebuild on all of these. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Reminders.createChannels(context)
-        Reminders.reschedule(context)
-        Sync.schedulePeriodic(context)
+        val result = goAsync()
+        val app = context.applicationContext
+        Thread {
+            try {
+                Reminders.createChannels(app)
+                Reminders.reschedule(app)
+                Sync.schedulePeriodic(app)
+            } finally {
+                result.finish()
+            }
+        }.start()
     }
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1] - 2026-11-20
+
+- **Snappier**: switches, tabs and follows respond instantly. Reminder alarms are now rebuilt in the background
+  and only the ones that changed are touched; team-name matching and crest lookups are cached.
+- **Font** is one row in Settings now: System default, a short list shown in each font's own face, and
+  "More fonts" for all of Google Fonts. Picking one downloads it with a spinner on that row.
+- Elo choices read Off / 10 / 20 / 30 / 50 so they fit on any font size.
+
 ## [0.1.0] - 2026-11-20
 
 First release.

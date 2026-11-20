@@ -39,6 +39,8 @@ import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DataObject
+import androidx.compose.material.icons.rounded.FontDownload
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -89,19 +91,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val s = Store.settings
     var fontSheet by remember { mutableStateOf(false) }
-    var fontBusy by remember { mutableStateOf<String?>(null) }
-    var fontError by remember { mutableStateOf<String?>(null) }
     var sourceDialog by remember { mutableStateOf(false) }
     var tokenDialog by remember { mutableStateOf(false) }
-
-    fun pickFont(name: String) {
-        fontBusy = name
-        fontError = null
-        scope.launch {
-            Fonts.use(ctx, name).onFailure { fontError = it.message }
-            fontBusy = null
-        }
-    }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         PageTitle("Settings")
@@ -159,33 +150,7 @@ fun SettingsScreen(
                     ) { ThemePrefs.setPureBlack(ctx, it) }
                 }
                 item {
-                    Pad {
-                        Text("Font", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            if (Fonts.family.isBlank()) "System font" else Fonts.family,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Chip(selected = Fonts.family.isBlank(), onClick = { Fonts.useSystem(ctx) }) { Text("System") }
-                            Fonts.picks.forEach { name ->
-                                Chip(selected = Fonts.family.equals(name, true), onClick = { pickFont(name) }) {
-                                    Text(if (fontBusy == name) "$name…" else name)
-                                }
-                            }
-                            val custom = Fonts.family.isNotBlank() && Fonts.picks.none { it.equals(Fonts.family, true) }
-                            if (custom) Chip(selected = true, onClick = { fontSheet = true }) { Text(Fonts.family) }
-                            Chip(selected = false, onClick = { fontSheet = true }) {
-                                Icon(Icons.Rounded.Search, null, Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("All Google Fonts")
-                            }
-                        }
-                        fontError?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
-                        }
-                    }
+                    NavRow(Icons.Rounded.FontDownload, "Font", Fonts.family.ifBlank { "System default" }) { fontSheet = true }
                 }
             }
 
@@ -236,9 +201,7 @@ fun SettingsScreen(
         }
     }
 
-    if (fontSheet) {
-        FontBrowserSheet(selected = Fonts.family, onPick = { pickFont(it); fontSheet = false }, onDismiss = { fontSheet = false })
-    }
+    if (fontSheet) FontSheet { fontSheet = false }
     if (sourceDialog) {
         AlertDialog(
             onDismissRequest = { sourceDialog = false },
@@ -343,6 +306,82 @@ private fun StatusRow(
             )
         }
         if (ok) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/**
+ * Font picker: System default, a short list of picks (each shown in its own face), and "More fonts" for the full
+ * Google Fonts catalogue. Picking downloads in place with a spinner on that row; the sheet closes when it's applied.
+ */
+@Composable
+fun FontSheet(onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var busy by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var browse by remember { mutableStateOf(false) }
+
+    fun apply(name: String?) {
+        if (busy != null) return
+        error = null
+        if (name == null) { Fonts.useSystem(ctx); onDismiss(); return }
+        if (Fonts.family.equals(name, true)) { onDismiss(); return }
+        busy = name
+        scope.launch {
+            Fonts.use(ctx, name)
+                .onSuccess { busy = null; onDismiss() }
+                .onFailure { busy = null; error = it.message ?: "Couldn't download $name" }
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text("Font", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp))
+            FontChoice("System default", null, selected = Fonts.family.isBlank(), busy = false) { apply(null) }
+            val shown = (Fonts.picks + listOfNotNull(Fonts.family.takeIf { f -> f.isNotBlank() && Fonts.picks.none { it.equals(f, true) } }))
+            shown.forEach { name ->
+                FontChoice(name, name, selected = Fonts.family.equals(name, true), busy = busy == name) { apply(name) }
+            }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { browse = true }.padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(16.dp))
+                Text("More fonts", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            error?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            }
+        }
+    }
+    if (browse) FontBrowserSheet(selected = Fonts.family, onPick = { browse = false; apply(it) }, onDismiss = { browse = false })
+}
+
+/** One radio row; [family] null = system font. The name is drawn in its own face once a tiny preview arrives. */
+@Composable
+private fun FontChoice(label: String, family: String?, selected: Boolean, busy: Boolean, onClick: () -> Unit) {
+    val ctx = LocalContext.current
+    val tf by produceState<Typeface?>(null, family) { if (family != null) value = Fonts.previewTypeface(ctx, family) }
+    val face = remember(tf) { tf?.let { FontFamily(it) } }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            if (busy) LoadingIndicator(Modifier.size(24.dp)) else RadioButton(selected = selected, onClick = null)
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontFamily = if (family == null) FontFamily.Default else face,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

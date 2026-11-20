@@ -111,13 +111,13 @@ fun RegistaRoot(
 
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         health = readHealth(ctx)
-        Reminders.reschedule(ctx)
+        Reminders.rescheduleAsync(ctx)
     }
 
     // Every return to the app: re-read permissions, rebuild alarms (exact may have been granted), refresh if stale.
     if (!preview) LifecycleResumeEffect(Unit) {
         health = readHealth(ctx)
-        Reminders.reschedule(ctx)
+        Reminders.rescheduleAsync(ctx)
         Sync.syncIfStale(ctx)
         // First launch: notifications are the whole point, so ask straight away (Android 13+).
         if (Build.VERSION.SDK_INT >= 33 && !health.notifications && !prefs.getBoolean("asked_notifications", false)) {

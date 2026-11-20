@@ -89,7 +89,7 @@ object Sync {
             if (s.eloTopN > 0 && (Store.eloRanks.isEmpty() || now - Store.eloAt > 86_400_000L)) {
                 runCatching { Elo.fetch() }.getOrNull()?.let { ranks -> withContext(Dispatchers.Main) { Store.saveElo(ranks) } }
             }
-            withContext(Dispatchers.Main) { Reminders.reschedule(ctx) }
+            Reminders.reschedule(ctx) // already on a background thread
             null
         } finally {
             setSyncing(false)

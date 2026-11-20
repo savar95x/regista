@@ -100,24 +100,39 @@ object Store {
         if (!tmp.renameTo(file(name))) { file(name).writeText(text); tmp.delete() }
     }
 
-    fun config(): RuleConfig = RuleConfig(
-        follows = follows,
-        bigTeams = bigTeams,
-        bigMatchesOn = settings.bigMatchesOn,
-        derbiesOn = settings.derbiesOn,
-        knockoutsOn = settings.knockoutsOn,
-        eloTopN = settings.eloTopN,
-        eloRanks = eloRanks,
-        muted = muted,
-    )
+    // Memoised: the rules run over every fixture, and screens ask for them on each recomposition.
+    @Volatile private var cfgCache: Pair<List<Any?>, RuleConfig>? = null
+    @Volatile private var upNextCache: Triple<List<Any?>, Long, List<Pair<Match, List<Reason>>>>? = null
 
-    /** Upcoming relevant matches with reasons (also what reminders are scheduled from). */
-    fun upNext(now: Long = System.currentTimeMillis()): List<Pair<Match, List<Reason>>> =
-        Rules.relevant(matches.filter { it.kickoff > now - 2 * 3_600_000L }, config())
+    fun config(): RuleConfig {
+        val inputs = listOf(follows, bigTeams, settings, eloRanks, muted)
+        cfgCache?.let { (k, v) -> if (k.size == inputs.size && k.indices.all { k[it] === inputs[it] }) return v }
+        return RuleConfig(
+            follows = follows,
+            bigTeams = bigTeams,
+            bigMatchesOn = settings.bigMatchesOn,
+            derbiesOn = settings.derbiesOn,
+            knockoutsOn = settings.knockoutsOn,
+            eloTopN = settings.eloTopN,
+            eloRanks = eloRanks,
+            muted = muted,
+        ).also { cfgCache = inputs to it }
+    }
+
+    /** Upcoming relevant matches with reasons (also what reminders are scheduled from). Cached per minute. */
+    fun upNext(now: Long = System.currentTimeMillis()): List<Pair<Match, List<Reason>>> {
+        val cfg = config()
+        val inputs = listOf(matches, cfg)
+        val minute = now / 60_000
+        upNextCache?.let { (k, m, v) -> if (m == minute && k[0] === inputs[0] && k[1] === inputs[1]) return v }
+        return Rules.relevant(matches.filter { it.kickoff > now - 2 * 3_600_000L }, cfg)
+            .also { upNextCache = Triple(inputs, minute, it) }
+    }
 
     // ---------------------------------------------------------------- mutations (persist + reschedule)
 
-    private fun changed(ctx: Context) = Reminders.reschedule(ctx)
+    // Alarm work happens off the main thread so switches and buttons respond instantly.
+    private fun changed(ctx: Context) = Reminders.rescheduleAsync(ctx)
 
     fun updateSettings(ctx: Context, f: (Settings) -> Settings) {
         settings = f(settings)
@@ -201,13 +216,19 @@ object Store {
         prefs().edit().putLong("eloAt", eloAt).apply()
     }
 
-    /** Best crest for a team that may have been stored without one (e.g. the built-in big list). */
+    @Volatile private var logoIndex: Triple<List<Team>, List<Match>, Map<String, String>>? = null
+
+    /** Best crest for a team that may have been stored without one (e.g. the built-in big list). O(1). */
     fun logoFor(t: Team): String {
         if (t.logo.isNotEmpty()) return t.logo
-        val k = t.key
-        return catalog.firstOrNull { it.key == k && it.nation == t.nation }?.logo
-            ?: matches.asSequence().flatMap { sequenceOf(it.home, it.away) }.firstOrNull { it.key == k }?.logo
-            ?: ""
+        val cat = catalog
+        val ms = matches
+        val idx = logoIndex?.takeIf { it.first === cat && it.second === ms }?.third ?: HashMap<String, String>().also { map ->
+            ms.forEach { m -> listOf(m.home, m.away).forEach { if (it.logo.isNotEmpty()) map.putIfAbsent("${it.nation}|${it.key}", it.logo) } }
+            cat.forEach { if (it.logo.isNotEmpty()) map["${it.nation}|${it.key}"] = it.logo }
+            logoIndex = Triple(cat, ms, map)
+        }
+        return idx["${t.nation}|${t.key}"] ?: ""
     }
 
     /** For tests and screenshots. */
