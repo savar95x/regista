@@ -97,8 +97,8 @@ fun SettingsScreen(
     var tokenDialog by remember { mutableStateOf(false) }
     var aheadDialog by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-        PageTitle("Settings")
+    Page("Settings") { pad ->
+    Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Group("Reminders") {
                 item {
@@ -227,6 +227,7 @@ fun SettingsScreen(
                 }
             }
         }
+    }
     }
 
     if (fontSheet) FontSheet { fontSheet = false }

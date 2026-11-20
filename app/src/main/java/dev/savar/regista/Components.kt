@@ -30,6 +30,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -236,6 +246,39 @@ internal fun openUrl(ctx: Context, url: String) {
     runCatching {
         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
+}
+
+/**
+ * A screen with Material 3's large title bar: the title starts big and shrinks into the top bar as you scroll
+ * (exit-until-collapsed), like Settings on Android 16 and the sibling apps. [onBack] adds a back arrow.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun Page(title: String, onBack: (() -> Unit)? = null, content: @Composable (PaddingValues) -> Unit) {
+    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scheme = MaterialTheme.colorScheme
+    val black = isAppDark() && ThemePrefs.pureBlack
+    Scaffold(
+        modifier = Modifier.fillMaxSize().nestedScroll(scroll.nestedScrollConnection),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = scheme.surface,
+        topBar = {
+            LargeTopAppBar(
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                },
+                scrollBehavior = scroll,
+                windowInsets = WindowInsets(0, 0, 0, 0), // the app's scaffold already pads for the status bar
+                colors = if (black) {
+                    TopAppBarDefaults.topAppBarColors(containerColor = scheme.surface, scrolledContainerColor = scheme.surface)
+                } else {
+                    TopAppBarDefaults.topAppBarColors()
+                },
+            )
+        },
+        content = content,
+    )
 }
 
 /** Big page title used at the top of each tab. */

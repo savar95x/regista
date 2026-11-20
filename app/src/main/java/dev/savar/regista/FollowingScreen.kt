@@ -78,8 +78,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun FollowingScreen(onSearch: () -> Unit, onBigSettings: () -> Unit) {
     val ctx = LocalContext.current
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-        PageTitle("Following")
+    Page("Following") { pad ->
+    Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Column {
                 Group("Teams") {
@@ -119,6 +119,7 @@ fun FollowingScreen(onSearch: () -> Unit, onBigSettings: () -> Unit) {
                 item { NavRow(Icons.Rounded.Tune, "What counts as big", bigSummary(), onBigSettings) }
             }
         }
+    }
     }
 }
 
@@ -179,6 +180,27 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
     val ctx = LocalContext.current
     val s = Store.settings
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf<Team?>(null) }
+    confirmRemove?.let { t ->
+        AlertDialog(
+            onDismissRequest = { confirmRemove = null },
+            icon = { Crest(t, 40.dp) },
+            title = { Text("Remove ${t.name}?") },
+            text = {
+                Text(
+                    "${t.short} won't count as big any more" +
+                        (if (s.eloTopN > 0 && !t.nation || s.nationTopN > 0 && t.nation) " unless it's among the strongest right now" else "") +
+                        ". Their matches against other big teams will stop showing unless you follow them.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { Store.removeBig(ctx, t); confirmRemove = null }) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text("Cancel") } },
+        )
+    }
     if (confirmReset) {
         val added = Store.bigTeams.count { t -> Rules.defaultBigTeams.none { it.key == t.key } }
         val removed = Rules.defaultBigTeams.count { d -> Store.bigTeams.none { it.key == d.key } }
@@ -204,15 +226,8 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
         )
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-        Row(Modifier.padding(start = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-        }
-        Text(
-            "What counts as big",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
-        )
+    Page("What counts as big", onBack = onBack) { pad ->
+    Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Text(
             "A match is big when both teams are big, it's a derby, or it's late in a knockout. A team is big if it's on your list below or among the strongest right now.",
             style = MaterialTheme.typography.bodyMedium,
@@ -271,7 +286,7 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
                             Crest(t, 32.dp)
                             Spacer(Modifier.width(16.dp))
                             Text(t.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { Store.removeBig(ctx, t) }) { Icon(Icons.Rounded.Close, "Remove ${t.name}") }
+                            IconButton(onClick = { confirmRemove = t }) { Icon(Icons.Rounded.Close, "Remove ${t.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     }
                 }
@@ -292,6 +307,7 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

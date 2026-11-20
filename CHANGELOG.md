@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1] - 2026-11-20
+
+- Page titles are Material 3's large collapsing title bar: big at the top, shrinking into the bar as you
+  scroll (same as Hiatus, Minutia and Aria). "What counts as big" gets a back arrow in the bar.
+- Removing a team from Big teams asks first and says what changes.
+
 ## [0.4.0] - 2026-11-20
 
 - **New icon**: a referee's whistle, drawn in the same colours and line weight as Aria and Minutia. The

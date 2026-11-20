@@ -97,13 +97,13 @@ fun UpNextScreen(
     var selected by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(openMatch) { if (openMatch != null) { selected = openMatch; onMatchOpened() } }
 
+    Page("Up next") { pad ->
     PullToRefreshBox(
         isRefreshing = Store.syncing && Store.sync.at > 0,
         onRefresh = { Sync.syncNow(ctx) },
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(pad),
     ) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item { PageTitle("Up next") }
             item { NextReminderLine(now) }
 
             item { UpdateCard() }
@@ -145,6 +145,7 @@ fun UpNextScreen(
             }
             item { SyncFooter() }
         }
+    }
     }
 
     val sel = selected?.let { id -> entries.firstOrNull { it.first.id == id } ?: Store.matches.firstOrNull { it.id == id }?.let { it to emptyList() } }
