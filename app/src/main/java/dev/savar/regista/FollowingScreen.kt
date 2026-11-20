@@ -36,6 +36,8 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Slider
@@ -176,6 +178,32 @@ private fun FollowRow(f: Follow) {
 fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
     val ctx = LocalContext.current
     val s = Store.settings
+    var confirmReset by remember { mutableStateOf(false) }
+    if (confirmReset) {
+        val added = Store.bigTeams.count { t -> Rules.defaultBigTeams.none { it.key == t.key } }
+        val removed = Rules.defaultBigTeams.count { d -> Store.bigTeams.none { it.key == d.key } }
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            icon = { Icon(Icons.Rounded.RestartAlt, null) },
+            title = { Text("Reset big teams?") },
+            text = {
+                Text(
+                    buildString {
+                        append("Your list goes back to the ${Rules.defaultBigTeams.size} default teams.")
+                        if (added > 0) append(" $added team${if (added == 1) "" else "s"} you added will be removed.")
+                        if (removed > 0) append(" $removed you removed will come back.")
+                        append(" This can't be undone.")
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { Store.resetBig(ctx); confirmReset = false }) {
+                    Text("Reset", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
+        )
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Row(Modifier.padding(start = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
@@ -254,7 +282,12 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
                             Spacer(Modifier.width(8.dp))
                             Text("Add team")
                         }
-                        TextButton(onClick = { Store.resetBig(ctx) }) { Text("Reset") }
+                        val isDefault = Store.bigTeams.map { it.key }.toSet() == Rules.defaultBigTeams.map { it.key }.toSet()
+                        if (!isDefault) {
+                            TextButton(onClick = { confirmReset = true }) {
+                                Text("Reset to defaults", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }

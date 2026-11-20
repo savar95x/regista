@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DataObject
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.FontDownload
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Key
@@ -94,6 +95,7 @@ fun SettingsScreen(
     var fontSheet by remember { mutableStateOf(false) }
     var sourceDialog by remember { mutableStateOf(false) }
     var tokenDialog by remember { mutableStateOf(false) }
+    var aheadDialog by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         PageTitle("Settings")
@@ -157,6 +159,9 @@ fun SettingsScreen(
 
             Group("Data") {
                 item {
+                    NavRow(Icons.Rounded.DateRange, "Look ahead", (Sync.LOOK_AHEAD.firstOrNull { it.first == s.lookAheadDays }?.second ?: "${s.lookAheadDays} days") + " of fixtures") { aheadDialog = true }
+                }
+                item {
                     NavRow(Icons.Rounded.DataObject, "Fixtures source", sourceSummary(s)) { sourceDialog = true }
                 }
                 item {
@@ -195,8 +200,8 @@ fun SettingsScreen(
                             is Updater.State.Downloading -> "Downloading ${u.release.version}… ${(u.progress * 100).toInt()}%"
                             is Updater.State.Installing -> "Installing ${u.release.version}…"
                             is Updater.State.Failed -> "Update failed: ${u.message}"
-                            Updater.State.UpToDate -> "Up to date · checked ${Fmt.ago(Updater.lastCheck)}"
-                            Updater.State.Idle -> "Tap to check for updates"
+                            Updater.State.UpToDate -> Updater.checkError?.let { "Couldn't check: $it" } ?: "Up to date · checked ${Fmt.ago(Updater.lastCheck)}"
+                            Updater.State.Idle -> Updater.checkError?.let { "Couldn't check: $it · tap to retry" } ?: "Tap to check for updates"
                         },
                     ) {
                         when (u) {
@@ -225,6 +230,39 @@ fun SettingsScreen(
     }
 
     if (fontSheet) FontSheet { fontSheet = false }
+    if (aheadDialog) {
+        AlertDialog(
+            onDismissRequest = { aheadDialog = false },
+            title = { Text("Look ahead") },
+            text = {
+                Column {
+                    Text(
+                        "How far ahead Up next and reminders reach. Kick-off times further out are often not fixed yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Sync.LOOK_AHEAD.forEach { (days, label) ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                                .selectable(selected = s.lookAheadDays == days, role = Role.RadioButton) {
+                                    aheadDialog = false
+                                    if (s.lookAheadDays != days) {
+                                        Store.updateSettings(ctx) { it.copy(lookAheadDays = days) }
+                                        Sync.syncNow(ctx)
+                                    }
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = s.lookAheadDays == days, onClick = null)
+                            Spacer(Modifier.width(16.dp))
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { aheadDialog = false }) { Text("Done") } },
+        )
+    }
     if (sourceDialog) {
         AlertDialog(
             onDismissRequest = { sourceDialog = false },

@@ -19,13 +19,14 @@ data class Settings(
     val knockoutsOn: Boolean = true,
     val eloTopN: Int = 20,
     val nationTopN: Int = 15,
+    val lookAheadDays: Int = 14,
     val source: SourcePref = SourcePref.AUTO,
     val fdToken: String = "",
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("leadDay", leadDay).put("leadHour", leadHour).put("leadFive", leadFive)
         .put("bigMatchesOn", bigMatchesOn).put("derbiesOn", derbiesOn).put("knockoutsOn", knockoutsOn)
-        .put("eloTopN", eloTopN).put("nationTopN", nationTopN).put("source", source.name).put("fdToken", fdToken)
+        .put("eloTopN", eloTopN).put("nationTopN", nationTopN).put("lookAheadDays", lookAheadDays).put("source", source.name).put("fdToken", fdToken)
 
     companion object {
         fun fromJson(o: JSONObject?): Settings {
@@ -40,6 +41,7 @@ data class Settings(
                 knockoutsOn = o.optBoolean("knockoutsOn", d.knockoutsOn),
                 eloTopN = o.optInt("eloTopN", d.eloTopN),
                 nationTopN = o.optInt("nationTopN", d.nationTopN),
+                lookAheadDays = o.optInt("lookAheadDays", d.lookAheadDays).coerceIn(7, 56),
                 source = SourcePref.entries.firstOrNull { it.name == o.optString("source") } ?: d.source,
                 fdToken = o.optString("fdToken"),
             )

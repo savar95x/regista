@@ -94,14 +94,83 @@ object Updater {
         scope.launch { lock.withLock { runCatching { doCheck(app) } } }
     }
 
+    /** Last check's problem, for Settings ("Couldn't check: …"). Null after a successful check. */
+    var checkError by mutableStateOf<String?>(null)
+        private set
+
+    /**
+     * Two independent ways to find the latest release, so one failing (GitHub's API allows only 60 anonymous
+     * calls an hour per IP, which a mobile network's shared address can use up) doesn't hide an update:
+     * 1. github.com/…/releases/latest redirects to the newest tag: no API, no rate limit. The APK URL follows
+     *    from the tag, its size from a HEAD request, the notes from CHANGELOG.md at that tag.
+     * 2. The GitHub API (with ETag), as before.
+     */
     private suspend fun doCheck(ctx: Context) {
-        val busy = state is State.Downloading || state is State.Installing
-        val p = prefs(ctx)
-        val conn = (URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection).apply {
+        val installed = installedVersion(ctx)
+        cleanup(ctx, installed)
+        val rel = runCatching { viaRedirect() }.recoverCatching { viaApi(ctx) }
+        withContext(Dispatchers.Main) {
+            lastCheck = System.currentTimeMillis()
+            checkError = rel.exceptionOrNull()?.let { describe(it) }
+        }
+        val r = rel.getOrNull() ?: return
+        if (state is State.Downloading || state is State.Installing) return
+        val next = when {
+            r.url.isBlank() || !newer(r.version, installed) -> State.UpToDate
+            isComplete(ctx, r) -> State.Ready(r)
+            else -> State.Available(r)
+        }
+        withContext(Dispatchers.Main) { state = next }
+    }
+
+    private fun describe(e: Throwable): String = when {
+        e is HttpStatusException && (e.code == 403 || e.code == 429) -> "GitHub is limiting requests, will retry later"
+        e is java.net.UnknownHostException || e is java.net.ConnectException -> "No connection"
+        e is java.net.SocketTimeoutException -> "GitHub didn't answer in time"
+        else -> e.message ?: "Couldn't reach GitHub"
+    }
+
+    private fun open(url: String, follow: Boolean = true, method: String = "GET") =
+        (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000
+            instanceFollowRedirects = follow
+            requestMethod = method
+            setRequestProperty("User-Agent", "Regista-updater (+https://github.com/$REPO)")
+        }
+
+    private fun viaRedirect(): Release {
+        val c = open("https://github.com/$REPO/releases/latest", follow = false)
+        val location = try {
+            if (c.responseCode !in 300..399) throw HttpStatusException(c.responseCode)
+            c.getHeaderField("Location") ?: throw Exception("No redirect")
+        } finally {
+            c.disconnect()
+        }
+        val tag = location.substringAfterLast("/tag/", "").substringBefore('?')
+        if (!tag.startsWith("v")) throw Exception("Unexpected release URL")
+        val version = tag.removePrefix("v")
+        val url = "https://github.com/$REPO/releases/download/$tag/Regista-$version.apk"
+        val size = runCatching {
+            val h = open(url, method = "HEAD")
+            try {
+                if (h.responseCode != 200) throw HttpStatusException(h.responseCode)
+                h.contentLengthLong
+            } finally {
+                h.disconnect()
+            }
+        }.getOrElse { e -> if (e is HttpStatusException && e.code == 404) throw Exception("Release has no APK yet") else -1L }
+        val notes = runCatching {
+            val md = Http.get("https://raw.githubusercontent.com/$REPO/$tag/CHANGELOG.md")
+            md.substringAfter("## [$version]", "").substringAfter('\n').substringBefore("\n## [")
+        }.getOrDefault("")
+        return Release(version, cleanNotes(notes), url, size)
+    }
+
+    private fun viaApi(ctx: Context): Release {
+        val p = prefs(ctx)
+        val conn = open("https://api.github.com/repos/$REPO/releases/latest").apply {
             setRequestProperty("Accept", "application/vnd.github+json")
-            setRequestProperty("User-Agent", "Regista-updater")
             p.getString("etag", null)?.let { setRequestProperty("If-None-Match", it) }
         }
         val body: String = try {
@@ -109,29 +178,22 @@ object Updater {
                 200 -> conn.inputStream.bufferedReader().use { it.readText() }.also { text ->
                     p.edit().putString("etag", conn.getHeaderField("ETag")).putString("release", text).apply()
                 }
-                304 -> p.getString("release", null) ?: return
-                else -> return
+                304 -> p.getString("release", null) ?: throw Exception("Cache missing")
+                else -> throw HttpStatusException(conn.responseCode)
             }
         } finally {
             conn.disconnect()
         }
-        withContext(Dispatchers.Main) { lastCheck = System.currentTimeMillis() }
-
         val o = JSONObject(body)
         val version = o.optString("tag_name").removePrefix("v")
         val asset = o.optJSONArray("assets").mapObjects { it }.firstOrNull { it.optString("name").endsWith(".apk") }
-        val installed = installedVersion(ctx)
-        cleanup(ctx, installed)
-        if (busy) return
-        val next = when {
-            asset == null || !newer(version, installed) -> State.UpToDate
-            else -> {
-                val rel = Release(version, cleanNotes(o.optString("body")), asset.optString("browser_download_url"), asset.optLong("size"))
-                if (isComplete(ctx, rel)) State.Ready(rel) else State.Available(rel)
-            }
-        }
-        withContext(Dispatchers.Main) { state = next }
+        return Release(version, cleanNotes(o.optString("body")), asset?.optString("browser_download_url").orEmpty(), asset?.optLong("size") ?: -1L)
     }
+
+    // ---------- prompt once per version
+
+    fun promptedVersion(ctx: Context): String = prefs(ctx).getString("prompted", "") ?: ""
+    fun markPrompted(ctx: Context, v: String) = prefs(ctx).edit().putString("prompted", v).apply()
 
     /** Release notes come from CHANGELOG.md: drop markdown emphasis, keep the bullet text. */
     private fun cleanNotes(md: String): String = md.lines()
@@ -142,7 +204,7 @@ object Updater {
 
     private fun isComplete(ctx: Context, rel: Release): Boolean {
         val f = apk(ctx, rel.version)
-        return f.exists() && (rel.size <= 0 || f.length() == rel.size)
+        return f.exists() && f.length() > 0 && (rel.size <= 0 || f.length() == rel.size)
     }
 
     /** Deletes APKs for versions already installed (or older), and stray partials of other versions. */
@@ -181,6 +243,7 @@ object Updater {
         withContext(Dispatchers.Main) { state = State.Downloading(rel, if (rel.size > 0) have.toFloat() / rel.size else 0f) }
         if (rel.size <= 0 || have < rel.size) fetch(rel, tmp, have)
         if (rel.size > 0 && tmp.length() != rel.size) throw Exception("Download incomplete, tap to resume")
+        if (tmp.length() == 0L) throw Exception("Download failed, tap to retry")
         // Make sure it's really an update of this app before handing it to the installer.
         val info = ctx.packageManager.getPackageArchiveInfo(tmp.absolutePath, 0)
         if (info == null || info.packageName != ctx.packageName) {

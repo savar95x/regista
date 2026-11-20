@@ -22,7 +22,8 @@ import java.time.LocalDate
  */
 object Sync {
     private const val JOB_ID = 1001
-    const val WINDOW_DAYS = 14L
+    /** Choices for Settings → Look ahead. */
+    val LOOK_AHEAD = listOf(7 to "1 week", 14 to "2 weeks", 28 to "4 weeks", 56 to "8 weeks")
     private val lock = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -54,7 +55,7 @@ object Sync {
             val s = Store.settings
             val today = LocalDate.now()
             val from = today.minusDays(1)
-            val to = today.plusDays(WINDOW_DAYS)
+            val to = today.plusDays(s.lookAheadDays.toLong())
 
             var error: String? = null
             var result: Pair<List<Match>, String>? = null

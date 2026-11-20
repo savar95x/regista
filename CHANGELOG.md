@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0] - 2026-11-20
+
+- **New icon**: a referee's whistle, drawn in the same colours and line weight as Aria and Minutia. The
+  notification icon matches.
+- **Updates pop up**: when a new version is out, opening the app shows it with what's new and an Update button
+  (once per version; the card on Up next and the row in Settings stay). The check no longer depends on GitHub's
+  rate-limited API, which could silently fail on mobile data; if both ways fail, Settings says why.
+- **Look ahead** (Settings → Data): fixtures and reminders for the next 1, 2, 4 or 8 weeks. Default 2 weeks.
+- Resetting the big teams list now asks first, says what will change, and only appears once you've edited it.
+
 ## [0.3.0] - 2026-11-20
 
 - **National teams by Elo.** "What counts as big" now has two sliders under *Strongest right now*: clubs
