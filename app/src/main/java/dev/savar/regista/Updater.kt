@@ -151,11 +151,16 @@ object Updater {
         if (!tag.startsWith("v")) throw Exception("Unexpected release URL")
         val version = tag.removePrefix("v")
         val url = "https://github.com/$REPO/releases/download/$tag/Regista-$version.apk"
+        // Size from a 1-byte ranged GET ("Content-Range: bytes 0-0/2738139"): the storage GitHub redirects to
+        // only accepts GET for these signed links, so HEAD is refused.
         val size = runCatching {
-            val h = open(url, method = "HEAD")
+            val h = open(url).apply { setRequestProperty("Range", "bytes=0-0") }
             try {
-                if (h.responseCode != 200) throw HttpStatusException(h.responseCode)
-                h.contentLengthLong
+                when (h.responseCode) {
+                    206 -> h.getHeaderField("Content-Range")?.substringAfterLast('/')?.toLongOrNull() ?: -1L
+                    200 -> h.contentLengthLong
+                    else -> throw HttpStatusException(h.responseCode)
+                }
             } finally {
                 h.disconnect()
             }
