@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.2] - 2026-11-20
+
+- Updates are back to the card on Up next (and the row in Settings); no more pop-up.
+
 ## [0.4.1] - 2026-11-20
 
 - Page titles are Material 3's large collapsing title bar: big at the top, shrinking into the bar as you

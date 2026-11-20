@@ -195,11 +195,6 @@ object Updater {
         return Release(version, cleanNotes(o.optString("body")), asset?.optString("browser_download_url").orEmpty(), asset?.optLong("size") ?: -1L)
     }
 
-    // ---------- prompt once per version
-
-    fun promptedVersion(ctx: Context): String = prefs(ctx).getString("prompted", "") ?: ""
-    fun markPrompted(ctx: Context, v: String) = prefs(ctx).edit().putString("prompted", v).apply()
-
     /** Release notes come from CHANGELOG.md: drop markdown emphasis, keep the bullet text. */
     private fun cleanNotes(md: String): String = md.lines()
         .map { it.replace("**", "").replace("`", "").trimEnd() }

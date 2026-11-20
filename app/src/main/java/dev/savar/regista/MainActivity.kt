@@ -201,7 +201,6 @@ fun RegistaRoot(
     }
 
     search?.let { purpose -> TeamSearchSheet(purpose) { search = null } }
-    if (!preview) UpdateDialog()
 
     // A tap on a reminder opens Up next with that match's sheet.
     androidx.compose.runtime.LaunchedEffect(openMatch) { if (openMatch != null) tab = Tab.UP_NEXT }

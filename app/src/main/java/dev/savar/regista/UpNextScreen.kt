@@ -356,45 +356,6 @@ fun UpdateCard() {
     }
 }
 
-/**
- * Pops up once per new version, over whatever tab is open: the release, its size and what's new, with Update
- * and Later. "Later" leaves the card on Up next and the row in Settings; it won't pop up again for that version.
- */
-@Composable
-fun UpdateDialog() {
-    val ctx = LocalContext.current
-    val rel = when (val s = Updater.state) {
-        is Updater.State.Available -> s.release
-        is Updater.State.Ready -> s.release
-        else -> null
-    } ?: return
-    var shown by remember(rel.version) { mutableStateOf(Updater.promptedVersion(ctx) != rel.version) }
-    if (!shown) return
-    fun close() { Updater.markPrompted(ctx, rel.version); shown = false }
-    AlertDialog(
-        onDismissRequest = { close() },
-        icon = { Icon(Icons.Rounded.SystemUpdate, null) },
-        title = { Text("Regista ${rel.version} is out") },
-        text = {
-            Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
-                Text(
-                    buildString {
-                        append("You have ${Updater.installedVersion(ctx)}.")
-                        if (rel.size > 0) append(" The update is ${"%.1f".format(rel.size / 1_048_576f)} MB.")
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                if (rel.notes.isNotBlank()) {
-                    Text("What's new", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
-                    Text(rel.notes, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = { close(); Updater.update(ctx) }) { Text("Update") } },
-        dismissButton = { TextButton(onClick = { close() }) { Text("Later") } },
-    )
-}
-
 @Composable
 private fun Loading() {
     Column(Modifier.fillMaxWidth().padding(top = 96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
