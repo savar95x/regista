@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0] - 2026-11-20
+
+- **In-app updates.** Opening the app checks GitHub for a new release (a tiny request when nothing changed).
+  An update card on Up next shows the version, size and what's new; Update downloads and installs it.
+  Each version is downloaded once: an interrupted download resumes, a downloaded one is reused if you
+  cancel the install, and old APKs are deleted after updating.
+- The first in-app update asks you to allow "Install unknown apps" and to confirm; from then on Android 12+
+  can update Regista without the extra prompt.
+- Settings → About shows the update status; tap to check now.
+
 ## [0.1.1] - 2026-11-20
 
 - **Snappier**: switches, tabs and follows respond instantly. Reminder alarms are now rebuilt in the background

@@ -29,6 +29,8 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SportsSoccer
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -99,6 +101,8 @@ fun UpNextScreen(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item { PageTitle("Up next") }
             item { NextReminderLine(now) }
+
+            item { UpdateCard() }
 
             if (!health.notifications) item {
                 HealthCard(Icons.Rounded.NotificationsOff, "Notifications are off", "Regista can't remind you without them.", "Allow", onFixNotifications)
@@ -261,6 +265,87 @@ private fun HealthCard(
                 val on = MaterialTheme.colorScheme.onTertiaryContainer
                 if (onDismiss != null) TextButton(onClick = onDismiss) { Text("Not now", color = on) }
                 TextButton(onClick = onAction) { Text(action, color = on, fontWeight = FontWeight.SemiBold) }
+            }
+        }
+    }
+}
+
+/** Shown when GitHub has a newer release, until installed or dismissed for that version. */
+@Composable
+fun UpdateCard() {
+    val ctx = LocalContext.current
+    val s = Updater.state
+    val rel = when (s) {
+        is Updater.State.Available -> s.release
+        is Updater.State.Ready -> s.release
+        is Updater.State.Downloading -> s.release
+        is Updater.State.Installing -> s.release
+        is Updater.State.Failed -> s.release
+        else -> null
+    } ?: return
+    var dismissed by remember(rel.version) { mutableStateOf(Updater.dismissedVersion(ctx) == rel.version) }
+    if (dismissed && (s is Updater.State.Available || s is Updater.State.Ready)) return
+    var notes by remember { mutableStateOf(false) }
+    val on = MaterialTheme.colorScheme.onPrimaryContainer
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 8.dp).animateContentSize()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.SystemUpdate, null, tint = on)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Regista ${rel.version}", style = MaterialTheme.typography.titleMedium, color = on)
+                    Text(
+                        when (s) {
+                            is Updater.State.Downloading -> "Downloading ${(s.progress * 100).toInt()}%"
+                            is Updater.State.Installing -> "Installing…"
+                            is Updater.State.Ready -> "Downloaded, ready to install"
+                            is Updater.State.Failed -> s.message
+                            else -> "Update available" + if (rel.size > 0) " · ${"%.1f".format(rel.size / 1_048_576f)} MB" else ""
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (s is Updater.State.Failed) MaterialTheme.colorScheme.error else on,
+                    )
+                }
+            }
+            if (s is Updater.State.Downloading) {
+                LinearWavyProgressIndicator(
+                    progress = { s.progress },
+                    modifier = Modifier.fillMaxWidth().padding(start = 36.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+                )
+            }
+            if (s is Updater.State.Installing) {
+                LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(start = 36.dp, end = 8.dp, top = 12.dp, bottom = 4.dp))
+            }
+            if (notes && rel.notes.isNotBlank()) {
+                Text(
+                    rel.notes,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = on,
+                    modifier = Modifier.padding(start = 36.dp, top = 8.dp, end = 8.dp),
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (rel.notes.isNotBlank()) TextButton(onClick = { notes = !notes }) { Text(if (notes) "Hide" else "What's new", color = on) }
+                if (s is Updater.State.Available || s is Updater.State.Ready) {
+                    TextButton(onClick = { Updater.dismiss(ctx, rel.version); dismissed = true }) { Text("Later", color = on) }
+                }
+                if (s !is Updater.State.Downloading && s !is Updater.State.Installing) {
+                    TextButton(onClick = { Updater.update(ctx) }) {
+                        Text(
+                            when (s) {
+                                is Updater.State.Failed -> "Retry"
+                                is Updater.State.Ready -> "Install"
+                                else -> "Update"
+                            },
+                            color = on,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
             }
         }
     }

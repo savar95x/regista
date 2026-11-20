@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.AlertDialog
@@ -184,7 +185,29 @@ fun SettingsScreen(
                     val version = remember {
                         runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
                     }
-                    NavRow(Icons.Rounded.Code, "Regista $version", "github.com/savar95x/regista") {
+                    val u = Updater.state
+                    NavRow(
+                        Icons.Rounded.SystemUpdate,
+                        "Regista $version",
+                        when (u) {
+                            is Updater.State.Available -> "Update available: ${u.release.version}"
+                            is Updater.State.Ready -> "${u.release.version} downloaded, tap to install"
+                            is Updater.State.Downloading -> "Downloading ${u.release.version}… ${(u.progress * 100).toInt()}%"
+                            is Updater.State.Installing -> "Installing ${u.release.version}…"
+                            is Updater.State.Failed -> "Update failed: ${u.message}"
+                            Updater.State.UpToDate -> "Up to date · checked ${Fmt.ago(Updater.lastCheck)}"
+                            Updater.State.Idle -> "Tap to check for updates"
+                        },
+                    ) {
+                        when (u) {
+                            is Updater.State.Available, is Updater.State.Ready, is Updater.State.Failed -> Updater.update(ctx)
+                            is Updater.State.Downloading, is Updater.State.Installing -> Unit
+                            else -> Updater.check(ctx)
+                        }
+                    }
+                }
+                item {
+                    NavRow(Icons.Rounded.Code, "Source code", "github.com/savar95x/regista") {
                         openUrl(ctx, "https://github.com/savar95x/regista")
                     }
                 }

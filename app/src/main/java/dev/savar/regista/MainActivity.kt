@@ -119,6 +119,8 @@ fun RegistaRoot(
         health = readHealth(ctx)
         Reminders.rescheduleAsync(ctx)
         Sync.syncIfStale(ctx)
+        Updater.checkIfDue(ctx)
+        Updater.resumeAfterPermission(ctx)
         // First launch: notifications are the whole point, so ask straight away (Android 13+).
         if (Build.VERSION.SDK_INT >= 33 && !health.notifications && !prefs.getBoolean("asked_notifications", false)) {
             prefs.edit().putBoolean("asked_notifications", true).apply()

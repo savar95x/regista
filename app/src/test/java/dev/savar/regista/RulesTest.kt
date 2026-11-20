@@ -141,6 +141,13 @@ class RulesTest {
         assertNull(Elo.rankOf(como, r))
     }
 
+    @Test fun versions() {
+        assertTrue(Updater.newer("0.1.10", "0.1.9"))
+        assertTrue(Updater.newer("v1.0.0", "0.9.99"))
+        assertTrue(!Updater.newer("0.1.1", "0.1.1"))
+        assertTrue(!Updater.newer("0.1.0", "0.1.1"))
+    }
+
     @Test fun search() {
         val pool = listOf(liverpool, atletico, inter, manUtd, spurs, portugal, spain)
         assertEquals("Manchester United", searchTeams(pool, "man u").first().name)

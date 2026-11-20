@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Lets the "Battery" fix open the one-tap unrestricted prompt (OxygenOS holds alarms back otherwise). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- In-app updates from GitHub Releases. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <application
         android:name=".RegistaApp"
@@ -35,6 +38,7 @@
         </activity>
 
         <receiver android:name=".ReminderReceiver" android:exported="false" />
+        <receiver android:name=".UpdateReceiver" android:exported="false" />
 
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>

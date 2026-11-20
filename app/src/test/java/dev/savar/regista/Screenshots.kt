@@ -89,6 +89,13 @@ class Screenshots {
         }
     }
 
+    @Test fun update() {
+        seed()
+        Updater.force(Updater.State.Available(Updater.Release("0.1.2", "- Faster\n- In-app updates", "", 2_740_000)))
+        shot("upnext_update", ThemeMode.DARK) { RegistaRoot(null, {}, preview = true, previewHealth = healthy) }
+        Updater.force(Updater.State.Idle)
+    }
+
     @Test fun empty() {
         Store.seed(sync = SyncState(System.currentTimeMillis(), "ESPN", null, 0), settings = Settings(bigMatchesOn = false))
         Store.attach(ctx)
