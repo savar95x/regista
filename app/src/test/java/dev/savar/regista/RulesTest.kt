@@ -40,6 +40,9 @@ class RulesTest {
         assertEquals("paris sg", Names.canonical("Paris Saint-Germain"))
         assertEquals("bilbao", Names.canonical("Athletic Club"))
         assertEquals("union berlin", Names.canonical("1. FC Union Berlin"))
+        assertEquals("inter", Names.canonical("FC Internazionale Milano"))
+        assertEquals("benfica", Names.canonical("Sport Lisboa e Benfica"))
+        assertEquals("real madrid", Names.canonical("Real Madrid CF"))
     }
 
     @Test fun bigVsBigIsBig_evenIfNotFollowed() {

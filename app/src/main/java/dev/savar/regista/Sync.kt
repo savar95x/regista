@@ -68,6 +68,14 @@ object Sync {
                 error = "Add a football-data.org token in Settings"
             }
 
+            // Team list for search and crests: weekly, always from ESPN (whatever the fixtures source), since
+            // football-data.org crests are mostly SVG and it has no national-team list.
+            if (Store.catalog.isEmpty() || System.currentTimeMillis() - Store.catalogAt > 7 * 86_400_000L) {
+                runCatching { Espn.teams() }.getOrNull()?.takeIf { it.size > 50 }?.let { teams ->
+                    withContext(Dispatchers.Main) { Store.saveCatalog(teams) }
+                }
+            }
+
             if (result == null) {
                 val msg = error ?: "Couldn't update fixtures"
                 withContext(Dispatchers.Main) { Store.recordSync(Store.sync.copy(error = msg)) }
@@ -76,15 +84,7 @@ object Sync {
             val (matches, source) = result
             withContext(Dispatchers.Main) { Store.saveMatches(matches, source) }
 
-            // Team list for search: weekly, ESPN only (its ids are the ones follows use).
             val now = System.currentTimeMillis()
-            if (source == "ESPN" && (Store.catalog.isEmpty() || now - Store.catalogAt > 7 * 86_400_000L)) {
-                runCatching { Espn.teams() }.getOrNull()?.takeIf { it.size > 50 }?.let { teams ->
-                    val seen = matches.flatMap { listOf(it.home, it.away) }
-                    val all = (teams + seen).distinctBy { it.id }
-                    withContext(Dispatchers.Main) { Store.saveCatalog(all) }
-                }
-            }
             // Club Elo: daily, only when the top-N rule is on.
             if (s.eloTopN > 0 && (Store.eloRanks.isEmpty() || now - Store.eloAt > 86_400_000L)) {
                 runCatching { Elo.fetch() }.getOrNull()?.let { ranks -> withContext(Dispatchers.Main) { Store.saveElo(ranks) } }

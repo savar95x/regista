@@ -220,15 +220,16 @@ object Store {
 
     /** Best crest for a team that may have been stored without one (e.g. the built-in big list). O(1). */
     fun logoFor(t: Team): String {
-        if (t.logo.isNotEmpty()) return t.logo
+        // SVG crests (football-data.org) can't be decoded: look the team up in ESPN's list instead.
+        if (t.logo.isNotEmpty() && !t.logo.endsWith(".svg", ignoreCase = true)) return t.logo
         val cat = catalog
         val ms = matches
         val idx = logoIndex?.takeIf { it.first === cat && it.second === ms }?.third ?: HashMap<String, String>().also { map ->
-            ms.forEach { m -> listOf(m.home, m.away).forEach { if (it.logo.isNotEmpty()) map.putIfAbsent("${it.nation}|${it.key}", it.logo) } }
+            ms.forEach { m -> listOf(m.home, m.away).forEach { if (it.logo.isNotEmpty() && !it.logo.endsWith(".svg", true)) map.putIfAbsent("${it.nation}|${it.key}", it.logo) } }
             cat.forEach { if (it.logo.isNotEmpty()) map["${it.nation}|${it.key}"] = it.logo }
             logoIndex = Triple(cat, ms, map)
         }
-        return idx["${t.nation}|${t.key}"] ?: ""
+        return idx["${t.nation}|${t.key}"] ?: t.logo
     }
 
     /** For tests and screenshots. */

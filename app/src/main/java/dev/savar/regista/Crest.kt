@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,15 +75,18 @@ fun Crest(team: Team, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     val url = Store.logoFor(team)
     val px = with(androidx.compose.ui.platform.LocalDensity.current) { size.roundToPx() } * 2
     val inPreview = LocalInspectionMode.current
-    val image by produceState<ImageBitmap?>(Crests.cached(url)?.asImageBitmap(), url) {
-        if (value == null && !inPreview) value = Crests.load(ctx, url, px)?.asImageBitmap()
-    }
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
-        Crossfade(image, label = "crest") { img ->
-            if (img != null) {
-                Image(img, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(size))
-            } else {
-                Monogram(team, size)
+    key(team.id, team.name, url) {
+        val image by produceState(Crests.cached(url)?.asImageBitmap(), url) {
+            value = Crests.cached(url)?.asImageBitmap()
+            if (value == null && !inPreview && url.isNotBlank()) value = Crests.load(ctx, url, px)?.asImageBitmap()
+        }
+        Box(modifier.size(size), contentAlignment = Alignment.Center) {
+            Crossfade(image, label = "crest") { img ->
+                if (img != null) {
+                    Image(img, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(size))
+                } else {
+                    Monogram(team, size)
+                }
             }
         }
     }

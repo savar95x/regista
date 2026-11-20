@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1] - 2026-11-20
+
+- Crests no longer stick to the wrong team after removing one from Big teams (Real Madrid showing PSG's badge).
+- Crests and national flags now load whichever fixtures source is selected: the team list always comes from
+  ESPN (football-data.org's crests are SVGs Android can't draw, and it has no national teams).
+- football-data.org's full club names (FC Internazionale Milano, Sport Lisboa e Benfica…) match their teams.
+
 ## [0.2.0] - 2026-11-20
 
 - **In-app updates.** Opening the app checks GitHub for a new release (a tiny request when nothing changed).
