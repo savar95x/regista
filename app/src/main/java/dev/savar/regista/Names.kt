@@ -82,6 +82,13 @@ object Names {
         "united states" to "usa",
         "korea republic" to "south korea",
         "turkiye" to "turkey",
+        "cote d ivoire" to "ivory coast",
+        "czech republic" to "czechia",
+        "republic ireland" to "ireland",
+        "rep ireland" to "ireland",
+        "republic of ireland" to "ireland",
+        "korea south" to "south korea",
+        "bosnia herzegovina" to "bosnia and herzegovina",
     )
 
     private val MARKS = Regex("\\p{Mn}+")

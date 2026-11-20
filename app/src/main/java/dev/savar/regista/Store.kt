@@ -18,13 +18,14 @@ data class Settings(
     val derbiesOn: Boolean = true,
     val knockoutsOn: Boolean = true,
     val eloTopN: Int = 20,
+    val nationTopN: Int = 15,
     val source: SourcePref = SourcePref.AUTO,
     val fdToken: String = "",
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("leadDay", leadDay).put("leadHour", leadHour).put("leadFive", leadFive)
         .put("bigMatchesOn", bigMatchesOn).put("derbiesOn", derbiesOn).put("knockoutsOn", knockoutsOn)
-        .put("eloTopN", eloTopN).put("source", source.name).put("fdToken", fdToken)
+        .put("eloTopN", eloTopN).put("nationTopN", nationTopN).put("source", source.name).put("fdToken", fdToken)
 
     companion object {
         fun fromJson(o: JSONObject?): Settings {
@@ -38,6 +39,7 @@ data class Settings(
                 derbiesOn = o.optBoolean("derbiesOn", d.derbiesOn),
                 knockoutsOn = o.optBoolean("knockoutsOn", d.knockoutsOn),
                 eloTopN = o.optInt("eloTopN", d.eloTopN),
+                nationTopN = o.optInt("nationTopN", d.nationTopN),
                 source = SourcePref.entries.firstOrNull { it.name == o.optString("source") } ?: d.source,
                 fdToken = o.optString("fdToken"),
             )
@@ -60,6 +62,9 @@ object Store {
     var settings by mutableStateOf(Settings()); private set
     var catalog by mutableStateOf<List<Team>>(emptyList()); private set
     var eloRanks by mutableStateOf<Map<String, Int>>(emptyMap()); private set
+    /** National-team ranks (eloratings.net), or the built-in snapshot until the first fetch succeeds. */
+    var nationRanks by mutableStateOf(Elo.NATIONS_FALLBACK); private set
+    var nationAt = 0L; private set
     var sync by mutableStateOf(SyncState()); private set
     var syncing by mutableStateOf(false)
     var catalogAt = 0L; private set
@@ -83,6 +88,11 @@ object Store {
         sync = SyncState(p.getLong("syncAt", 0), p.getString("syncSource", "")!!, p.getString("syncError", null), p.getInt("syncCount", 0))
         catalogAt = p.getLong("catalogAt", 0)
         eloAt = p.getLong("eloAt", 0)
+        nationAt = p.getLong("nationAt", 0)
+        runCatching {
+            val o = JSONObject(file("elo_nations.json").readText())
+            o.keys().asSequence().associateWith { o.getInt(it) }
+        }.getOrNull()?.takeIf { it.size >= 30 }?.let { nationRanks = it }
         matches = readArr("matches.json").mapObjects(Match::fromJson)
         catalog = readArr("teams.json").mapObjects(Team::fromJson)
         eloRanks = runCatching {
@@ -105,7 +115,7 @@ object Store {
     @Volatile private var upNextCache: Triple<List<Any?>, Long, List<Pair<Match, List<Reason>>>>? = null
 
     fun config(): RuleConfig {
-        val inputs = listOf(follows, bigTeams, settings, eloRanks, muted)
+        val inputs = listOf(follows, bigTeams, settings, eloRanks, nationRanks, muted)
         cfgCache?.let { (k, v) -> if (k.size == inputs.size && k.indices.all { k[it] === inputs[it] }) return v }
         return RuleConfig(
             follows = follows,
@@ -115,6 +125,8 @@ object Store {
             knockoutsOn = settings.knockoutsOn,
             eloTopN = settings.eloTopN,
             eloRanks = eloRanks,
+            nationTopN = settings.nationTopN,
+            nationRanks = nationRanks,
             muted = muted,
         ).also { cfgCache = inputs to it }
     }
@@ -209,6 +221,13 @@ object Store {
         prefs().edit().putLong("catalogAt", catalogAt).apply()
     }
 
+    fun saveNationElo(ranks: Map<String, Int>) {
+        nationRanks = ranks
+        nationAt = System.currentTimeMillis()
+        writeAtomic("elo_nations.json", JSONObject(ranks as Map<*, *>).toString())
+        prefs().edit().putLong("nationAt", nationAt).apply()
+    }
+
     fun saveElo(ranks: Map<String, Int>) {
         eloRanks = ranks
         eloAt = System.currentTimeMillis()
@@ -216,21 +235,47 @@ object Store {
         prefs().edit().putLong("eloAt", eloAt).apply()
     }
 
-    @Volatile private var logoIndex: Triple<List<Team>, List<Match>, Map<String, String>>? = null
+    private data class LogoIndex(val catalog: List<Team>, val matches: List<Match>, val byId: Map<String, String>, val byKey: Map<String, List<String>>, val espnIdByKey: Map<String, String>)
+    @Volatile private var logoIndex: LogoIndex? = null
 
-    /** Best crest for a team that may have been stored without one (e.g. the built-in big list). O(1). */
-    fun logoFor(t: Team): String {
-        // SVG crests (football-data.org) can't be decoded: look the team up in ESPN's list instead.
-        if (t.logo.isNotEmpty() && !t.logo.endsWith(".svg", ignoreCase = true)) return t.logo
+    private fun usable(url: String) = url.isNotBlank() && !url.endsWith(".svg", ignoreCase = true)
+
+    private fun index(): LogoIndex {
         val cat = catalog
         val ms = matches
-        val idx = logoIndex?.takeIf { it.first === cat && it.second === ms }?.third ?: HashMap<String, String>().also { map ->
-            ms.forEach { m -> listOf(m.home, m.away).forEach { if (it.logo.isNotEmpty() && !it.logo.endsWith(".svg", true)) map.putIfAbsent("${it.nation}|${it.key}", it.logo) } }
-            cat.forEach { if (it.logo.isNotEmpty()) map["${it.nation}|${it.key}"] = it.logo }
-            logoIndex = Triple(cat, ms, map)
+        logoIndex?.let { if (it.catalog === cat && it.matches === ms) return it }
+        val byId = HashMap<String, String>()
+        val byKey = HashMap<String, MutableList<String>>()
+        val espnIdByKey = HashMap<String, String>()
+        cat.forEach { if (it.id.all(Char::isDigit) && it.id.isNotEmpty()) espnIdByKey.putIfAbsent("${it.nation}|${it.key}", it.id) }
+        fun add(t: Team) {
+            if (!usable(t.logo)) return
+            if (t.id.isNotEmpty()) byId.putIfAbsent(t.id, t.logo)
+            val list = byKey.getOrPut("${t.nation}|${t.key}") { ArrayList(2) }
+            if (t.logo !in list) list += t.logo
         }
-        return idx["${t.nation}|${t.key}"] ?: t.logo
+        cat.forEach(::add) // ESPN's list first: most reliable
+        ms.forEach { add(it.home); add(it.away) }
+        return LogoIndex(cat, ms, byId, byKey, espnIdByKey).also { logoIndex = it }
     }
+
+    /**
+     * Crest URLs to try in order: the team's own, ESPN's by id, any crest seen for the same name, and ESPN's
+     * standard crest path for a club id. [Crest] walks the list until one loads, then falls back to a monogram.
+     */
+    fun logosFor(t: Team): List<String> {
+        val idx = index()
+        val out = LinkedHashSet<String>()
+        if (usable(t.logo)) out += t.logo
+        idx.byId[t.id]?.let(out::add)
+        idx.byKey["${t.nation}|${t.key}"]?.let(out::addAll)
+        val espnId = t.id.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
+            ?: idx.espnIdByKey["${t.nation}|${t.key}"]
+        if (!t.nation && espnId != null) out += "https://a.espncdn.com/i/teamlogos/soccer/500/$espnId.png"
+        return out.toList()
+    }
+
+    fun logoFor(t: Team): String = logosFor(t).firstOrNull() ?: ""
 
     /** For tests and screenshots. */
     fun seed(

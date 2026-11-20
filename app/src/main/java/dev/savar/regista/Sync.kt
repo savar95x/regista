@@ -89,6 +89,10 @@ object Sync {
             if (s.eloTopN > 0 && (Store.eloRanks.isEmpty() || now - Store.eloAt > 86_400_000L)) {
                 runCatching { Elo.fetch() }.getOrNull()?.let { ranks -> withContext(Dispatchers.Main) { Store.saveElo(ranks) } }
             }
+            // National teams: weekly is plenty (they play a few times a year). Keeps the snapshot on failure.
+            if (s.nationTopN > 0 && now - Store.nationAt > 7 * 86_400_000L) {
+                runCatching { Elo.fetchNations() }.getOrNull()?.let { ranks -> withContext(Dispatchers.Main) { Store.saveNationElo(ranks) } }
+            }
             Reminders.reschedule(ctx) // already on a background thread
             null
         } finally {

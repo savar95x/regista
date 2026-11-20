@@ -34,6 +34,8 @@ data class RuleConfig(
     val knockoutsOn: Boolean = true,
     val eloTopN: Int = 20,
     val eloRanks: Map<String, Int> = emptyMap(),
+    val nationTopN: Int = 0,
+    val nationRanks: Map<String, Int> = emptyMap(),
     val muted: Set<String> = emptySet(),
 ) {
     internal val bigKeys: Set<String> by lazy { bigTeams.mapTo(HashSet()) { it.key } }
@@ -122,9 +124,10 @@ object Rules {
 
     fun isBig(t: Team, cfg: RuleConfig): Boolean {
         if (t.id in cfg.bigIds || t.key in cfg.bigKeys) return true
-        if (!t.nation && cfg.eloTopN > 0) {
-            val rank = Elo.rankOf(t, cfg.eloRanks)
-            if (rank != null && rank <= cfg.eloTopN) return true
+        val (n, ranks) = if (t.nation) cfg.nationTopN to cfg.nationRanks else cfg.eloTopN to cfg.eloRanks
+        if (n > 0) {
+            val rank = Elo.rankOf(t, ranks)
+            if (rank != null && rank <= n) return true
         }
         return false
     }

@@ -36,6 +36,11 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.ui.graphics.Color
+import kotlin.math.roundToInt
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,50 +76,55 @@ import kotlinx.coroutines.launch
 @Composable
 fun FollowingScreen(onSearch: () -> Unit, onBigSettings: () -> Unit) {
     val ctx = LocalContext.current
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 104.dp)) {
-            PageTitle("Following")
-            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
+        PageTitle("Following")
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column {
+                Group("Teams") {
+                    item {
+                        ListItem(
+                            modifier = Modifier.clickable(onClick = onSearch),
+                            leadingContent = {
+                                RowIcon(Icons.Rounded.Add, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+                            },
+                            headlineContent = { Text("Follow a team", color = MaterialTheme.colorScheme.primary) },
+                            supportingContent = { Text("Club, country or player") },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        )
+                    }
+                    Store.follows.sortedBy { it.team.name }.forEach { f ->
+                        item { FollowRow(f) }
+                    }
+                }
                 if (Store.follows.isEmpty()) {
                     Text(
-                        "Follow clubs or national teams to get reminders for their matches. Pick \"Big games only\" for teams you only half follow.",
+                        "Get reminders for every match of a team, or pick \"Big games only\" for teams you half follow.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp),
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
                     )
-                } else {
-                    Group("Teams") {
-                        Store.follows.sortedBy { it.team.name }.forEach { f ->
-                            item { FollowRow(f) }
-                        }
-                    }
-                }
-                Group("Big matches") {
-                    item {
-                        SwitchRow(
-                            "Big matches",
-                            checked = Store.settings.bigMatchesOn,
-                            icon = Icons.Rounded.EmojiEvents,
-                            summary = "Reminders for the biggest games, whoever's playing",
-                        ) { on -> Store.updateSettings(ctx) { it.copy(bigMatchesOn = on) } }
-                    }
-                    item { NavRow(Icons.Rounded.Tune, "What counts as big", bigSummary(), onBigSettings) }
                 }
             }
+            Group("Big matches") {
+                item {
+                    SwitchRow(
+                        "Big matches",
+                        checked = Store.settings.bigMatchesOn,
+                        icon = Icons.Rounded.EmojiEvents,
+                        summary = "Reminders for the biggest games, whoever's playing",
+                    ) { on -> Store.updateSettings(ctx) { it.copy(bigMatchesOn = on) } }
+                }
+                item { NavRow(Icons.Rounded.Tune, "What counts as big", bigSummary(), onBigSettings) }
+            }
         }
-        ExtendedFloatingActionButton(
-            onClick = onSearch,
-            icon = { Icon(Icons.Rounded.Add, null) },
-            text = { Text("Follow") },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-        )
     }
 }
 
 private fun bigSummary(): String {
     val s = Store.settings
     val parts = mutableListOf("${Store.bigTeams.size} big teams")
-    if (s.eloTopN > 0) parts += "Europe's top ${s.eloTopN}"
+    if (s.eloTopN > 0) parts += "top ${s.eloTopN} clubs"
+    if (s.nationTopN > 0) parts += "top ${s.nationTopN} nations"
     if (s.derbiesOn) parts += "derbies"
     if (s.knockoutsOn) parts += "late knockouts"
     return parts.joinToString(", ")
@@ -176,7 +186,7 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
         )
         Text(
-            "A match is big when both teams are big, it's a derby, or it's late in a knockout. Teams you follow on \"Big games only\" use the same rules from their side.",
+            "A match is big when both teams are big, it's a derby, or it's late in a knockout. A team is big if it's on your list below or among the strongest right now.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
@@ -196,22 +206,31 @@ fun BigSettingsPage(onBack: () -> Unit, onAddBig: () -> Unit) {
                     ) { on -> Store.updateSettings(ctx) { it.copy(knockoutsOn = on) } }
                 }
             }
-            Group("Strongest clubs") {
+            Group("Strongest right now") {
                 item {
-                    Pad {
-                        Text("Europe's top clubs by Elo", style = MaterialTheme.typography.bodyLarge)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Updated daily from clubelo.com, so in-form clubs count even if they aren't on your list.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Segmented(listOf(0, 10, 20, 30, 50), s.eloTopN, { if (it == 0) "Off" else "$it" }) { n ->
-                            Store.updateSettings(ctx) { it.copy(eloTopN = n) }
-                            if (n > 0 && Store.eloRanks.isEmpty()) Sync.syncNow(ctx)
-                        }
+                    StrengthRow(
+                        title = "Clubs",
+                        scope = "in Europe",
+                        source = "Club Elo, updated daily",
+                        value = s.eloTopN,
+                        max = 50,
+                        ranks = Store.eloRanks,
+                        nation = false,
+                    ) { n ->
+                        Store.updateSettings(ctx) { it.copy(eloTopN = n) }
+                        if (n > 0 && Store.eloRanks.isEmpty()) Sync.syncNow(ctx)
                     }
+                }
+                item {
+                    StrengthRow(
+                        title = "National teams",
+                        scope = "in the world",
+                        source = "World Football Elo, updated weekly",
+                        value = s.nationTopN,
+                        max = 30,
+                        ranks = Store.nationRanks,
+                        nation = true,
+                    ) { n -> Store.updateSettings(ctx) { it.copy(nationTopN = n) } }
                 }
             }
             Group("Big teams") {
@@ -440,5 +459,75 @@ private fun PlayerResult(p: PlayerHit) {
                 }
             }
         }
+    }
+}
+
+/** "Top N by Elo" control: a stepped slider (0 = off) and the teams that currently qualify. */
+@Composable
+private fun StrengthRow(
+    title: String,
+    scope: String,
+    source: String,
+    value: Int,
+    max: Int,
+    ranks: Map<String, Int>,
+    nation: Boolean,
+    onChange: (Int) -> Unit,
+) {
+    var v by remember(value) { mutableStateOf(value.toFloat()) }
+    var showList by remember { mutableStateOf(false) }
+    val n = (v / 5).roundToInt() * 5
+    Pad {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(
+                if (n == 0) "Off" else "Top $n",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (n == 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+            )
+        }
+        Text(
+            if (n == 0) "Only your list counts" else "The $n strongest $scope also count as big · $source",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = v,
+            onValueChange = { v = it },
+            onValueChangeFinished = { if (n != value) onChange(n) },
+            valueRange = 0f..max.toFloat(),
+            steps = max / 5 - 1,
+        )
+        if (n > 0) {
+            val names = remember(ranks, n) { topNames(ranks, n, nation) }
+            if (names.isEmpty()) {
+                Text("Ratings load on the next update", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                TextButton(onClick = { showList = !showList }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                    Text(if (showList) "Hide list" else "See who's in")
+                }
+                Reveal(showList) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        names.forEachIndexed { i, t ->
+                            Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = RoundedCornerShape(50)) {
+                                Row(Modifier.padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Crest(t, 22.dp)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("${i + 1}  ${t.short}", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Top [n] teams by rank, as real teams from the catalogue where possible (for names and crests). */
+private fun topNames(ranks: Map<String, Int>, n: Int, nation: Boolean): List<Team> {
+    val byKey = Store.catalog.filter { it.nation == nation }.associateBy { it.key }
+    return ranks.entries.filter { it.value <= n }.sortedBy { it.value }.map { (key, _) ->
+        byKey[key] ?: Team(id = "", name = key.split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }, nation = nation)
     }
 }

@@ -281,6 +281,43 @@ object Elo {
         parse(csv).also { if (it.size < 50) throw SourceException("ClubElo returned too little") }
     }
 
+    /**
+     * Built-in national-team order (World Football Elo, approx. late 2026) used until eloratings.net answers, and
+     * kept if it never does. Only the top ~40 matter for the "top N" rule.
+     */
+    val NATIONS_FALLBACK: Map<String, Int> = listOf(
+        "Spain", "Argentina", "France", "England", "Brazil", "Portugal", "Netherlands", "Colombia", "Germany",
+        "Croatia", "Italy", "Belgium", "Uruguay", "Norway", "Japan", "Switzerland", "Ecuador", "Denmark", "Mexico",
+        "Morocco", "Turkey", "Austria", "United States", "Senegal", "Iran", "Paraguay", "South Korea", "Serbia",
+        "Ukraine", "Poland", "Australia", "Canada", "Sweden", "Hungary", "Scotland", "Czechia", "Greece",
+        "Wales", "Nigeria", "Egypt", "Algeria", "Ivory Coast", "Peru", "Chile", "Venezuela", "Ireland",
+    ).mapIndexed { i, n -> Names.canonical(n) to i + 1 }.toMap()
+
+    /**
+     * eloratings.net's data files: `en.teams.tsv` maps team codes to names, `World.tsv` lists teams best first
+     * with their code and rating. The format isn't documented, so the code and rating columns are found by
+     * shape, and anything odd throws (the caller keeps the previous ranks).
+     */
+    suspend fun fetchNations(): Map<String, Int> = withContext(Dispatchers.IO) {
+        val names = HashMap<String, String>()
+        Http.get("https://www.eloratings.net/en.teams.tsv").lineSequence().forEach { line ->
+            val p = line.split('\t')
+            if (p.size >= 2 && p[0].isNotBlank() && p[1].isNotBlank()) names[p[0].trim()] = p[1].trim()
+        }
+        val rows = Http.get("https://www.eloratings.net/World.tsv").lineSequence().mapNotNull { line ->
+            val p = line.split('\t').map { it.trim() }
+            val ci = p.indexOfFirst { it in names }
+            if (ci < 0) return@mapNotNull null
+            val rating = p.drop(ci + 1).firstNotNullOfOrNull { it.toIntOrNull()?.takeIf { r -> r in 500..3000 } }
+                ?: return@mapNotNull null
+            names.getValue(p[ci]) to rating
+        }.toList()
+        if (rows.size < 100) throw SourceException("eloratings.net format changed")
+        val out = LinkedHashMap<String, Int>()
+        rows.sortedByDescending { it.second }.forEachIndexed { i, (name, _) -> out.putIfAbsent(Names.canonical(name), i + 1) }
+        out
+    }
+
     fun rankOf(t: Team, ranks: Map<String, Int>): Int? {
         if (ranks.isEmpty()) return null
         return ranks[t.key] ?: ranks[Names.canonical(t.short)]

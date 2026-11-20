@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0] - 2026-11-20
+
+- **National teams by Elo.** "What counts as big" now has two sliders under *Strongest right now*: clubs
+  (Europe's top N, Club Elo, daily) and national teams (world top N, World Football Elo, weekly; a built-in
+  ranking is used until the first download, and kept if the site ever stops answering). "See who's in" lists
+  the teams that currently qualify.
+- **Follow a team** is now the first row of Following instead of a floating button.
+- **Crests**: each team tries several sources in turn (its own crest, ESPN's by id, any crest seen for that
+  name, ESPN's standard path) before falling back to initials. Failed downloads retry after 30 minutes and
+  broken cached files are re-downloaded, so a flaky connection no longer leaves a team without a badge.
+
 ## [0.2.1] - 2026-11-20
 
 - Crests no longer stick to the wrong team after removing one from Big teams (Real Madrid showing PSG's badge).

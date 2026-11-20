@@ -88,7 +88,7 @@ fun UpNextScreen(
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = System.currentTimeMillis() } }
 
-    val entries = remember(Store.matches, Store.follows, Store.bigTeams, Store.settings, Store.eloRanks, now) { Store.upNext(now) }
+    val entries = remember(Store.matches, Store.follows, Store.bigTeams, Store.settings, Store.eloRanks, Store.nationRanks, now) { Store.upNext(now) }
     val upcoming = entries.filter { it.first.kickoff > now - 150 * 60_000L }
     var selected by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(openMatch) { if (openMatch != null) { selected = openMatch; onMatchOpened() } }

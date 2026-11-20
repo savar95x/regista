@@ -14,6 +14,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.dp
 import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
@@ -103,6 +105,15 @@ class Screenshots {
     }
 
     @Test fun following() { seed(); shot("following_dark", ThemeMode.DARK) { RegistaRoot(null, {}, preview = true, startTab = Tab.FOLLOWING, previewHealth = healthy) } }
+
+    @Test fun bigScrolled() {
+        seed()
+        shot("big_dark", ThemeMode.DARK) {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.offset(y = (-560).dp)) {
+                RegistaRoot(null, {}, preview = true, startTab = Tab.FOLLOWING, startBig = true, previewHealth = healthy)
+            }
+        }
+    }
 
     @Test fun big() { seed(); shot("big_light", ThemeMode.LIGHT) { RegistaRoot(null, {}, preview = true, startTab = Tab.FOLLOWING, startBig = true, previewHealth = healthy) } }
 

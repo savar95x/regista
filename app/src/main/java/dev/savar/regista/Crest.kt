@@ -40,21 +40,28 @@ object Crests {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
     private val gate = Semaphore(4)
-    private val failed = HashSet<String>()
+    private val failed = HashMap<String, Long>() // url -> when it failed; retried after RETRY_MS
+    private const val RETRY_MS = 30 * 60_000L
 
     private fun file(ctx: Context, url: String) = File(File(ctx.cacheDir, "crests").apply { mkdirs() }, "${url.hashCode().toUInt()}.img")
 
     fun cached(url: String): Bitmap? = mem.get(url)
 
     suspend fun load(ctx: Context, url: String, px: Int): Bitmap? = withContext(Dispatchers.IO) {
-        if (url.isBlank() || synchronized(failed) { url in failed }) return@withContext null
+        if (url.isBlank()) return@withContext null
         mem.get(url)?.let { return@withContext it }
+        val failedAt = synchronized(failed) { failed[url] }
+        if (failedAt != null && System.currentTimeMillis() - failedAt < RETRY_MS) return@withContext null
         val f = file(ctx, url)
-        if (!f.exists() || f.length() == 0L) {
+        var bmp = if (f.exists() && f.length() > 0) runCatching { decode(f, px) }.getOrNull() else null
+        if (bmp == null) {
+            f.delete() // missing or corrupt: fetch again
             gate.withPermit { runCatching { Http.download(url, f) } }
+            bmp = runCatching { decode(f, px) }.getOrNull()
+            if (bmp == null) f.delete()
         }
-        val bmp = runCatching { decode(f, px) }.getOrNull()
-        if (bmp == null) synchronized(failed) { failed += url } else mem.put(url, bmp)
+        synchronized(failed) { if (bmp == null) failed[url] = System.currentTimeMillis() else failed.remove(url) }
+        if (bmp != null) mem.put(url, bmp)
         bmp
     }
 
@@ -72,13 +79,20 @@ object Crests {
 @Composable
 fun Crest(team: Team, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    val url = Store.logoFor(team)
+    val urls = Store.logosFor(team)
+    val url = urls.joinToString("|")
     val px = with(androidx.compose.ui.platform.LocalDensity.current) { size.roundToPx() } * 2
     val inPreview = LocalInspectionMode.current
     key(team.id, team.name, url) {
-        val image by produceState(Crests.cached(url)?.asImageBitmap(), url) {
-            value = Crests.cached(url)?.asImageBitmap()
-            if (value == null && !inPreview && url.isNotBlank()) value = Crests.load(ctx, url, px)?.asImageBitmap()
+        val image by produceState(urls.firstNotNullOfOrNull { Crests.cached(it) }?.asImageBitmap(), url) {
+            value = urls.firstNotNullOfOrNull { Crests.cached(it) }?.asImageBitmap()
+            if (value == null && !inPreview) {
+                for (u in urls) {
+                    val b = Crests.load(ctx, u, px) ?: continue
+                    value = b.asImageBitmap()
+                    break
+                }
+            }
         }
         Box(modifier.size(size), contentAlignment = Alignment.Center) {
             Crossfade(image, label = "crest") { img ->

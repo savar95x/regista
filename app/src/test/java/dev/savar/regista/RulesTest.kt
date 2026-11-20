@@ -92,6 +92,16 @@ class RulesTest {
         assertEquals(listOf(Reason.BigMatch), Rules.reasons(m(como, inter), c))
     }
 
+    @Test fun nationElo() {
+        val norway = t("464", "Norway", true)
+        val c = cfg.copy(nationTopN = 15, nationRanks = Elo.NATIONS_FALLBACK, bigTeams = emptyList())
+        assertTrue(Rules.isBig(norway, c))
+        assertTrue(!Rules.isBig(norway, c.copy(nationTopN = 10)))
+        assertTrue(!Rules.isBig(t("1", "San Marino", true), c))
+        assertEquals("ireland", Names.canonical("Republic of Ireland"))
+        assertEquals("ivory coast", Names.canonical("Côte d'Ivoire"))
+    }
+
     @Test fun stageRank() {
         assertEquals(4, Comps.stageRank("Final"))
         assertEquals(3, Comps.stageRank("Semifinals - 1st Leg"))
