@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Halfway line -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M52.25,28h3.5v14.5h-3.5z M52.25,65.5h3.5v14.5h-3.5z" />
+    <!-- Centre circle -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,54m-12.25,0a12.25,12.25 0,1 1,24.5 0a12.25,12.25 0,1 1,-24.5 0" />
+    <!-- Centre spot: the ball waiting for kick-off -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,54m-4.25,0a4.25,4.25 0,1 1,8.5 0a4.25,4.25 0,1 1,-8.5 0" />
+</vector>

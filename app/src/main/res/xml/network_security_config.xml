@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- ClubElo's API may only answer over plain HTTP; nothing else is allowed in cleartext. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">api.clubelo.com</domain>
+    </domain-config>
+</network-security-config>
