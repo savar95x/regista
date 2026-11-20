@@ -45,10 +45,13 @@ object Crests {
 
     private fun file(ctx: Context, url: String) = File(File(ctx.cacheDir, "crests").apply { mkdirs() }, "${url.hashCode().toUInt()}.img")
 
+    /** Screenshot tests: never touch the network or decode on background threads. */
+    @Volatile var offline = false
+
     fun cached(url: String): Bitmap? = mem.get(url)
 
     suspend fun load(ctx: Context, url: String, px: Int): Bitmap? = withContext(Dispatchers.IO) {
-        if (url.isBlank()) return@withContext null
+        if (url.isBlank() || offline) return@withContext null
         mem.get(url)?.let { return@withContext it }
         val failedAt = synchronized(failed) { failed[url] }
         if (failedAt != null && System.currentTimeMillis() - failedAt < RETRY_MS) return@withContext null

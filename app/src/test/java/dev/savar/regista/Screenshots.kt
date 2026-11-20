@@ -53,6 +53,7 @@ class Screenshots {
         LocalDate.now().plusDays(daysFromToday).atTime(hour, minute).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
     private fun seed() {
+        Crests.offline = true
         Store.seed(
             matches = listOf(
                 Match("1", Comps.SERIE_A, "Serie A", at(0, 23, 0), como, inter, venue = "Stadio Giuseppe Sinigaglia"),
@@ -99,6 +100,7 @@ class Screenshots {
     }
 
     @Test fun empty() {
+        Crests.offline = true
         Store.seed(sync = SyncState(System.currentTimeMillis(), "ESPN", null, 0), settings = Settings(bigMatchesOn = false))
         Store.attach(ctx)
         shot("upnext_empty", ThemeMode.LIGHT) { RegistaRoot(null, {}, preview = true, previewHealth = healthy) }
