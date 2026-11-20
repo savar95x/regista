@@ -70,7 +70,7 @@ object Sync {
 
             if (result == null) {
                 val msg = error ?: "Couldn't update fixtures"
-                withContext(Dispatchers.Main) { Store.setSync(Store.sync.copy(error = msg)) }
+                withContext(Dispatchers.Main) { Store.recordSync(Store.sync.copy(error = msg)) }
                 return msg
             }
             val (matches, source) = result!!

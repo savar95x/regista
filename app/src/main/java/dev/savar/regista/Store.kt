@@ -178,10 +178,10 @@ object Store {
             muted = muted.filterTo(HashSet()) { it in ids }
             prefs().edit().putStringSet("muted", muted).apply()
         }
-        setSync(SyncState(System.currentTimeMillis(), source, null, list.size))
+        recordSync(SyncState(System.currentTimeMillis(), source, null, list.size))
     }
 
-    fun setSync(s: SyncState) {
+    fun recordSync(s: SyncState) {
         sync = s
         prefs().edit().putLong("syncAt", s.at).putString("syncSource", s.source).putString("syncError", s.error)
             .putInt("syncCount", s.count).apply()
