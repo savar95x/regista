@@ -171,7 +171,7 @@ private fun MatchRow(m: Match, reasons: List<Reason>, now: Long, muted: Boolean,
             .alpha(if (muted) 0.55f else 1f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.width(76.dp)) {
+        Column(Modifier.width(84.dp)) {
             when {
                 m.status == Status.LIVE || (m.kickoff <= now && m.status == Status.SCHEDULED) -> LivePill()
                 m.status == Status.POSTPONED -> Text("Postponed", style = MaterialTheme.typography.labelLarge, color = scheme.error)
@@ -184,7 +184,7 @@ private fun MatchRow(m: Match, reasons: List<Reason>, now: Long, muted: Boolean,
                         textDecoration = if (m.status == Status.POSTPONED) TextDecoration.LineThrough else null,
                     )
                     if (m.kickoff - now < 24 * 3_600_000L) {
-                        Text(Fmt.until(m.kickoff, now), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                        Text(Fmt.untilShort(m.kickoff, now), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                     }
                 }
             }
@@ -258,8 +258,9 @@ private fun HealthCard(
                 modifier = Modifier.padding(start = 36.dp, top = 4.dp, end = 8.dp),
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (onDismiss != null) TextButton(onClick = onDismiss) { Text("Not now") }
-                TextButton(onClick = onAction) { Text(action) }
+                val on = MaterialTheme.colorScheme.onTertiaryContainer
+                if (onDismiss != null) TextButton(onClick = onDismiss) { Text("Not now", color = on) }
+                TextButton(onClick = onAction) { Text(action, color = on, fontWeight = FontWeight.SemiBold) }
             }
         }
     }

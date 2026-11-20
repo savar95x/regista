@@ -73,7 +73,7 @@ object Sync {
                 withContext(Dispatchers.Main) { Store.recordSync(Store.sync.copy(error = msg)) }
                 return msg
             }
-            val (matches, source) = result!!
+            val (matches, source) = result
             withContext(Dispatchers.Main) { Store.saveMatches(matches, source) }
 
             // Team list for search: weekly, ESPN only (its ids are the ones follows use).

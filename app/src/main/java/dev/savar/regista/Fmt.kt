@@ -56,6 +56,16 @@ object Fmt {
         }
     }
 
+    /** Compact form for tight spots: "in 12h 15m", "in 8m". */
+    fun untilShort(t: Long, now: Long = System.currentTimeMillis()): String {
+        val min = (t - now) / 60_000
+        return when {
+            min <= 0 -> "now"
+            min < 60 -> "in ${min}m"
+            else -> "in ${min / 60}h" + if (min % 60 != 0L) " ${min % 60}m" else ""
+        }
+    }
+
     fun ago(t: Long, now: Long = System.currentTimeMillis()): String {
         if (t <= 0) return "never"
         val min = (now - t) / 60_000
