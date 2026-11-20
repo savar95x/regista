@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.savar.regista.Screenshots" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-20T18:43:31.538Z" hostname="runnervmccnms" time="6.409">
+  <properties/>
+  <testcase name="upNextLight" classname="dev.savar.regista.Screenshots" time="4.193"/>
+  <testcase name="bigScrolled" classname="dev.savar.regista.Screenshots" time="0.433"/>
+  <testcase name="update" classname="dev.savar.regista.Screenshots" time="0.272"/>
+  <testcase name="upNextDark" classname="dev.savar.regista.Screenshots" time="0.234"/>
+  <testcase name="big" classname="dev.savar.regista.Screenshots" time="0.288"/>
+  <testcase name="empty" classname="dev.savar.regista.Screenshots" time="0.197"/>
+  <testcase name="upNextBlackWarning" classname="dev.savar.regista.Screenshots" time="0.217"/>
+  <testcase name="following" classname="dev.savar.regista.Screenshots" time="0.26"/>
+  <testcase name="settings" classname="dev.savar.regista.Screenshots" time="0.271"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.savar.regista.RulesTest" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-11-20T18:43:25.209Z" hostname="runnervmccnms" time="6.321">
+  <properties/>
+  <testcase name="versions" classname="dev.savar.regista.RulesTest" time="3.174"/>
+  <testcase name="parseEspn" classname="dev.savar.regista.RulesTest" time="0.067"/>
+  <testcase name="followMatchesByNameAcrossSources" classname="dev.savar.regista.RulesTest" time="0.032"/>
+  <testcase name="eloTopN" classname="dev.savar.regista.RulesTest" time="0.03"/>
+  <testcase name="parseFootballData" classname="dev.savar.regista.RulesTest" time="0.029"/>
+  <testcase name="smallGamesIgnored" classname="dev.savar.regista.RulesTest" time="0.033"/>
+  <testcase name="nationElo" classname="dev.savar.regista.RulesTest" time="0.026"/>
+  <testcase name="search" classname="dev.savar.regista.RulesTest" time="0.032"/>
+  <testcase name="elo" classname="dev.savar.regista.RulesTest" time="0.026"/>
+  <testcase name="names" classname="dev.savar.regista.RulesTest" time="0.021"/>
+  <testcase name="everyMatchFollow" classname="dev.savar.regista.RulesTest" time="0.022"/>
+  <testcase name="bigVsBigIsBig_evenIfNotFollowed" classname="dev.savar.regista.RulesTest" time="0.021"/>
+  <testcase name="knockouts" classname="dev.savar.regista.RulesTest" time="0.035"/>
+  <testcase name="derbyNamed" classname="dev.savar.regista.RulesTest" time="0.022"/>
+  <testcase name="stageRank" classname="dev.savar.regista.RulesTest" time="0.024"/>
+  <testcase name="bigGamesOnlyFollow" classname="dev.savar.regista.RulesTest" time="0.022"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
