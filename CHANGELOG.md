@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.4] - 2026-11-22
+
+- New icon: a corner flag (cream pole and ground line, coral flag). The notification icon matches.
+
 ## [0.4.3] - 2026-11-21
 
 - Lighter icon: an open whistle (a single line for the mouthpiece instead of a solid block). The notification
