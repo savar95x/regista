@@ -1,0 +1,123 @@
+"""
+Regista's switchable launcher icons. Each mark is drawn in the 108-unit adaptive-icon canvas with the family
+palette (#1C1C1E tile, cream #EEE7DC, coral #E2957A, 8.2 strokes), then scaled to ~80 px on an OxygenOS home
+screen and optically centred (half-way between its outline's centre and its centre of mass).
+
+  python3 docs/icon/make.py          # previews: icons.png (family + all choices)
+  python3 docs/icon/make.py --write  # regenerate app/src/main/res drawables and mipmaps
+
+Needs rsvg-convert, ImageMagick and Pillow. Keep ICONS in sync with AppIcons.kt.
+"""
+import os, sys, re, xml.etree.ElementTree as ET
+sys.path.insert(0, os.path.dirname(__file__))
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+from lib import *
+
+def hook(a, col):
+    r = rot(a); p = [r(*q) for q in [(19, -11), (22, 6), (9, 16), (4, 9)]]
+    return stroke(f"M{p[0][0]:.2f},{p[0][1]:.2f} C{p[1][0]:.2f},{p[1][1]:.2f} {p[2][0]:.2f},{p[2][1]:.2f} {p[3][0]:.2f},{p[3][1]:.2f}", col=col)
+def swoosh(a, col):
+    r = rot(a); (x0, y0), (x1, y1), (x2, y2) = [r(*p) for p in [(6, 0), (14, -9), (21, -4)]]
+    return stroke(f"M{x0:.2f},{y0:.2f} Q{x1:.2f},{y1:.2f} {x2:.2f},{y2:.2f}", col=col)
+flag = (stroke("M41,76 L41,32 M41,76 L67,76", w=7.6)
+        + f'<path d="M45.5,33 L66,40.5 L45.5,48 Z" fill="{A}" stroke="{A}" stroke-width="5" stroke-linejoin="round"/>')
+
+# key -> (label, svg)   Order = order in the picker. "whistle" is the default.
+ICONS = {
+    "whistle": ("Whistle", snail()),
+    "hooked": ("Hooked seams", "".join(hook(a, A if i == 0 else C) for i, a in enumerate((0, 120, 240)))),
+    "seams_dot": ("Seams + dot", "".join(stroke(arcd(19, a + 20, a + 100)) for a in (-90, 30, 150)) + f'<circle cx="54" cy="54" r="5" fill="{A}"/>'),
+    "seams": ("Seams", "".join(stroke(arcd(19, a + 20, a + 100), col=(A if i == 0 else C)) for i, a in enumerate((-90, 30, 150)))),
+    "pinwheel": ("Pinwheel", "".join(swoosh(a, A if i == 0 else C) for i, a in enumerate((-30, 90, 210)))),
+    "flag": ("Corner flag", flag),
+}
+FIXED_SCALE = {"flag": 0.63}  # shipped in 0.4.6; kept as it was
+
+def placed(key):
+    inner = ICONS[key][1]
+    s = FIXED_SCALE.get(key) or fit(inner)
+    g = optical(inner, s) if key not in FIXED_SCALE else f'<g transform="translate(0 0)">{inner}</g>'
+    return s, g
+
+def status_placement(inner):
+    # fill ~84% of a 24dp status icon, centred by outline
+    _f, _m, pts = render(inner, "tmp_stat", 1.0, px=360)
+    xs = [a for a, _ in pts]; ys = [b for _, b in pts]; k = 360 / 70
+    w = (max(xs) - min(xs)) / k; h = (max(ys) - min(ys)) / k
+    cx = 19 + (min(xs) + max(xs)) / 2 / k; cy = 19 + (min(ys) + max(ys)) / 2 / k
+    return 0.84 * 108 / max(w, h), 54 - cx, 54 - cy
+
+def circle_path(cx, cy, r):
+    return f"M{cx - r:.2f},{cy} a{r},{r} 0 1,1 {2 * r:.2f},0 a{r},{r} 0 1,1 {-2 * r:.2f},0"
+
+def to_android(svg_inner, mono=False, indent="        "):
+    root = ET.fromstring(f'<g xmlns="http://www.w3.org/2000/svg">{svg_inner}</g>')
+    out = []
+    def colour(c): return "#FFFFFFFF" if mono else "#FF" + c.lstrip("#").upper()
+    def walk(el, tx=0.0, ty=0.0):
+        tag = el.tag.split('}')[-1]
+        if tag == "g":
+            m = re.search(r"translate\(([-\d.]+)[ ,]+([-\d.]+)\)", el.get("transform", ""))
+            dx, dy = (float(m.group(1)), float(m.group(2))) if m else (0, 0)
+            for c in el: walk(c, tx + dx, ty + dy)
+            return
+        if tag == "circle":
+            d = circle_path(float(el.get("cx")) + tx, float(el.get("cy")) + ty, float(el.get("r")))
+            out.append(f'{indent}<path\n{indent}    android:pathData="{d}"\n{indent}    android:fillColor="{colour(el.get("fill"))}" />')
+            return
+        if tag == "path":
+            d = el.get("d")
+            if tx or ty:  # wrap in a translated group to keep path data exact
+                out.append(f'{indent}<group android:translateX="{tx:.3f}" android:translateY="{ty:.3f}">')
+            ind = indent + ("    " if (tx or ty) else "")
+            attrs = [f'android:pathData="{d}"']
+            fill = el.get("fill")
+            if fill and fill != "none": attrs.append(f'android:fillColor="{colour(fill)}"')
+            if el.get("stroke"):
+                attrs += [f'android:strokeColor="{colour(el.get("stroke"))}"', f'android:strokeWidth="{el.get("stroke-width")}"']
+                if el.get("stroke-linecap"): attrs.append(f'android:strokeLineCap="{el.get("stroke-linecap")}"')
+                if el.get("stroke-linejoin"): attrs.append(f'android:strokeLineJoin="{el.get("stroke-linejoin")}"')
+            out.append(f"{ind}<path\n" + "\n".join(f"{ind}    {a}" for a in attrs[:-1]) + f"\n{ind}    {attrs[-1]} />")
+            if tx or ty: out.append(f"{indent}</group>")
+    walk(root)
+    return "\n".join(out)
+
+def vector(key, inner, scale, mono, size=108, comment=""):
+    body = to_android(inner, mono)
+    return f'''<?xml version="1.0" encoding="utf-8"?>
+<!-- {comment} Generated by docs/icon/make.py; don't edit by hand. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="{size}dp"
+    android:height="{size}dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="{scale:.4f}"
+        android:scaleY="{scale:.4f}">
+{body}
+    </group>
+</vector>
+'''
+
+if __name__ == "__main__":
+    placed_all = {k: placed(k) for k in ICONS}
+    sheet({ICONS[k][0]: (g, s) for k, (s, g) in placed_all.items()}, "icons.png")
+    if "--write" in sys.argv:
+        res = os.path.join("..", "..", "app", "src", "main", "res")
+        for k, (s, g) in placed_all.items():
+            label = ICONS[k][0]
+            open(os.path.join(res, "drawable", f"ic_fg_{k}.xml"), "w").write(vector(k, g, s, False, comment=f"{label}: launcher foreground."))
+            open(os.path.join(res, "drawable", f"ic_mono_{k}.xml"), "w").write(vector(k, g, s, True, comment=f"{label}: themed-icon layer."))
+            ss, tx, ty = status_placement(ICONS[k][1])
+            stat = f'<g transform="translate({tx:.3f} {ty:.3f})">{ICONS[k][1]}</g>'
+            open(os.path.join(res, "drawable", f"ic_stat_{k}.xml"), "w").write(vector(k, stat, ss, True, size=24, comment=f"{label}: status-bar icon."))
+            open(os.path.join(res, "mipmap-anydpi-v26", f"ic_launcher_{k}.xml"), "w").write(f'''<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/icon_bg" />
+    <foreground android:drawable="@drawable/ic_fg_{k}" />
+    <monochrome android:drawable="@drawable/ic_mono_{k}" />
+</adaptive-icon>
+''')
+        print("wrote", len(placed_all), "icons")

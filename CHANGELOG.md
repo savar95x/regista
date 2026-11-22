@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0] - 2026-11-22
+
+- **Choose your app icon**: Settings → Look → App icon has six, all in the same family style: Whistle (the new
+  default), Hooked seams, Seams + dot, Seams, Pinwheel and the Corner flag. Reminder notifications use the
+  matching small icon.
+- After this update, or when you switch icons, the launcher may drop Regista from the home screen; add it
+  again from the app drawer.
+
 ## [0.4.6] - 2026-11-22
 
 - App icon: the corner flag is a touch bigger, so it matches Aria, Minutia and Hiatus on the home screen.

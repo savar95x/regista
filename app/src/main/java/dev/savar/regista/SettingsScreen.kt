@@ -6,6 +6,13 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,6 +103,8 @@ fun SettingsScreen(
     var sourceDialog by remember { mutableStateOf(false) }
     var tokenDialog by remember { mutableStateOf(false) }
     var aheadDialog by remember { mutableStateOf(false) }
+    var iconSheet by remember { mutableStateOf(false) }
+    var appIcon by remember { mutableStateOf(AppIcon.current(ctx)) }
 
     Page("Settings") { pad ->
     Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
@@ -155,6 +164,7 @@ fun SettingsScreen(
                 item {
                     NavRow(Icons.Rounded.FontDownload, "Font", Fonts.family.ifBlank { "System default" }) { fontSheet = true }
                 }
+                item { AppIconRow(appIcon) { iconSheet = true } }
             }
 
             Group("Data") {
@@ -231,6 +241,7 @@ fun SettingsScreen(
     }
 
     if (fontSheet) FontSheet { fontSheet = false }
+    if (iconSheet) AppIconSheet(appIcon, onPick = { AppIcon.set(ctx, it); appIcon = it }, onDismiss = { iconSheet = false })
     if (aheadDialog) {
         AlertDialog(
             onDismissRequest = { aheadDialog = false },
@@ -526,5 +537,78 @@ private fun FontRow(fam: Fonts.Family, isSelected: Boolean, onClick: () -> Unit)
             )
         }
         if (isSelected) Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = scheme.primary)
+    }
+}
+
+
+/** Launcher-style tile for an app icon: the family's dark tile with the mark, cropped like a launcher does. */
+@Composable
+fun IconTile(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(Color(0xFF1C1C1E)),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Launchers show the middle ~2/3 of the 108dp adaptive canvas.
+        Image(painterResource(icon.foreground), contentDescription = null, modifier = Modifier.requiredSize(size * 1.5f))
+    }
+}
+
+@Composable
+private fun AppIconRow(icon: AppIcon, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconTile(icon, 40.dp)
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text("App icon", style = MaterialTheme.typography.bodyLarge)
+            Text(icon.label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Grid of every launcher icon; tapping one switches the home-screen icon straight away. */
+@Composable
+fun AppIconSheet(current: AppIcon, onPick: (AppIcon) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+            Text("App icon", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 8.dp, bottom = 16.dp))
+            AppIcon.entries.chunked(3).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    row.forEach { icon ->
+                        val selected = icon == current
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                .selectable(selected = selected, role = Role.RadioButton) { if (!selected) onPick(icon) }
+                                .padding(vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            IconTile(icon, 64.dp)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                icon.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            Text(
+                "The home screen can take a few seconds to update. If Regista's icon disappears from it, add it again from the app drawer.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            )
+        }
     }
 }

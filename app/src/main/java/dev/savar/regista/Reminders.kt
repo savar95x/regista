@@ -192,7 +192,7 @@ object Reminders {
         )
         val sub = listOfNotNull(reason?.label, m.stage.takeIf { it.isNotBlank() && reason !is Reason.Knockout }).joinToString(" · ")
         return Notification.Builder(ctx, lead.channel)
-            .setSmallIcon(R.drawable.ic_stat_regista)
+            .setSmallIcon(AppIcon.current(ctx).status)
             .setContentTitle(title)
             .setContentText(text)
             .setSubText(sub.ifBlank { null })
@@ -218,7 +218,7 @@ object Reminders {
         val style = Notification.InboxStyle()
         active.forEach { style.addLine(it.notification.extras.getCharSequence(Notification.EXTRA_TITLE)) }
         val summary = Notification.Builder(ctx, Lead.DAY.channel)
-            .setSmallIcon(R.drawable.ic_stat_regista)
+            .setSmallIcon(AppIcon.current(ctx).status)
             .setContentTitle("${active.size} matches tomorrow")
             .setStyle(style.setSummaryText("Tomorrow"))
             .setGroup("lead_${Lead.DAY.key}")

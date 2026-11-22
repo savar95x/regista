@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import java.io.File
 import java.time.LocalDate
@@ -97,6 +98,22 @@ class Screenshots {
         Updater.force(Updater.State.Available(Updater.Release("0.1.2", "- Faster\n- In-app updates", "", 2_740_000)))
         shot("upnext_update", ThemeMode.DARK) { RegistaRoot(null, {}, preview = true, previewHealth = healthy) }
         Updater.force(Updater.State.Idle)
+    }
+
+    @Test fun appIcons() {
+        seed()
+        shot("app_icons", ThemeMode.DARK) {
+            androidx.compose.foundation.layout.Column(
+                androidx.compose.ui.Modifier.padding(24.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(24.dp),
+            ) {
+                AppIcon.entries.chunked(3).forEach { row ->
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(24.dp)) {
+                        row.forEach { IconTile(it, 96.dp) }
+                    }
+                }
+            }
+        }
     }
 
     @Test fun empty() {
