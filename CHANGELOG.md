@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.6] - 2026-11-22
+
+- App icon: the corner flag is a touch bigger, so it matches Aria, Minutia and Hiatus on the home screen.
+
 ## [0.4.5] - 2026-11-22
 
 - App icon: more space around the corner flag, so it sits comfortably in OxygenOS's icon circle.
