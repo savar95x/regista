@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1] - 2026-11-22
+
+- **Badge-friendly reminders**: one notification per match. The day-before, hour-before and 5-minute reminders
+  update it instead of stacking, so the app icon's badge counts matches.
+- Reminders now stay until you tap or swipe them (cleared automatically a day after kick-off), so you can still
+  see one after the match has started. No more countdown that would run negative after kick-off.
+
 ## [0.5.0] - 2026-11-22
 
 - **Choose your app icon**: Settings → Look → App icon has six, all in the same family style: Whistle (the new

@@ -68,13 +68,19 @@ object Reminders {
                         Lead.HOUR -> "An hour before kick-off"
                         Lead.FIVE -> "Just before kick-off"
                     }
+                    setShowBadge(true)
                 },
             )
         }
     }
 
     private fun key(matchId: String, lead: Lead) = "$matchId|${lead.key}"
-    private fun notifId(matchId: String, lead: Lead) = key(matchId, lead).hashCode()
+    /**
+     * One notification per match: each reminder (day, hour, 5 min) replaces the last, so the launcher's badge counts
+     * matches, not reminders. It stays until tapped or swiped, and goes away a day after kick-off.
+     */
+    private fun notifId(matchId: String) = "match|$matchId".hashCode()
+    private const val KEEP_AFTER_KICKOFF_MS = 24 * 3_600_000L
 
     private fun alarmIntent(ctx: Context, matchId: String, lead: Lead, kickoff: Long): PendingIntent {
         val i = Intent(ctx, ReminderReceiver::class.java)
@@ -160,14 +166,13 @@ object Reminders {
         if (m.status != Status.SCHEDULED || m.kickoff != kickoff || !lead.enabled(Store.settings) || m.id in Store.muted) return
         if (!notificationsAllowed(ctx)) return
         val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
-        nm.notify(notifId(m.id, lead), build(ctx, m, entry.second.firstOrNull(), lead))
-        if (lead == Lead.DAY) summarize(ctx, nm)
+        nm.notify(notifId(m.id), build(ctx, m, entry.second.firstOrNull(), lead))
     }
 
     fun mute(ctx: Context, matchId: String) {
         Store.load(ctx)
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        Lead.entries.forEach { nm?.cancel(notifId(matchId, it)) }
+        nm?.cancel(notifId(matchId))
         Store.setMuted(ctx, matchId, true)
     }
 
@@ -176,7 +181,7 @@ object Reminders {
         val text = when (lead) {
             Lead.DAY -> "${Fmt.dayWord(ctx, m.kickoff).replaceFirstChar { it.uppercase() }} at ${Fmt.time(ctx, m.kickoff)} · ${m.compName}"
             Lead.HOUR -> "Kicks off at ${Fmt.time(ctx, m.kickoff)} · ${m.compName}"
-            Lead.FIVE -> "Kicks off in 5 minutes · ${m.compName}"
+            Lead.FIVE -> "Starting at ${Fmt.time(ctx, m.kickoff)} · ${m.compName}"
         }
         val open = PendingIntent.getActivity(
             ctx, m.id.hashCode(),
@@ -197,35 +202,15 @@ object Reminders {
             .setContentText(text)
             .setSubText(sub.ifBlank { null })
             .setStyle(Notification.BigTextStyle().bigText(listOfNotNull(text, m.venue.takeIf { it.isNotBlank() }).joinToString("\n")))
-            .setWhen(m.kickoff)
+            // No countdown: the notification is meant to be readable after kick-off, when a countdown would run negative.
             .setShowWhen(true)
-            .apply { if (lead != Lead.DAY) setUsesChronometer(true).setChronometerCountDown(true) }
             .setCategory(Notification.CATEGORY_EVENT)
             .setContentIntent(open)
             .setAutoCancel(true)
-            .setTimeoutAfter((m.kickoff + 2 * 3_600_000L - System.currentTimeMillis()).coerceAtLeast(60_000L))
-            .setGroup("lead_${lead.key}")
+            .setNumber(1)
+            .setTimeoutAfter((m.kickoff + KEEP_AFTER_KICKOFF_MS - System.currentTimeMillis()).coerceAtLeast(60_000L))
             .addAction(Notification.Action.Builder(null, "Mute this match", mute).build())
             .build()
-    }
-
-    /** Several day-before reminders at once (a busy Saturday) collapse under one summary. */
-    private fun summarize(ctx: Context, nm: NotificationManager) {
-        val active = nm.activeNotifications.filter {
-            it.notification.group == "lead_${Lead.DAY.key}" && it.notification.flags and Notification.FLAG_GROUP_SUMMARY == 0
-        }
-        if (active.size < 2) return
-        val style = Notification.InboxStyle()
-        active.forEach { style.addLine(it.notification.extras.getCharSequence(Notification.EXTRA_TITLE)) }
-        val summary = Notification.Builder(ctx, Lead.DAY.channel)
-            .setSmallIcon(AppIcon.current(ctx).status)
-            .setContentTitle("${active.size} matches tomorrow")
-            .setStyle(style.setSummaryText("Tomorrow"))
-            .setGroup("lead_${Lead.DAY.key}")
-            .setGroupSummary(true)
-            .setAutoCancel(true)
-            .build()
-        nm.notify("summary_day".hashCode(), summary)
     }
 }
 

@@ -32,7 +32,7 @@ material3 pinned to 1.5.0-alpha27 for the Expressive APIs.
 | `Sources.kt` | `Espn` (scoreboard per competition with a date range, team lists, best-effort player search), `FootballData` (v4, token, 10-day windows), `Elo` (api.clubelo.com CSV → rank by canonical name). |
 | `Store.kt` | All state as Compose state; prefs + JSON files (`matches.json`, `teams.json`, `elo.json`). Every mutation reschedules reminders. |
 | `Sync.kt` | Fetch next 14 days (ESPN, fall back to football-data.org), weekly team list, daily Elo, then reschedule. `SyncJob` = JobScheduler every 6 h; also on app open if > 1 h old and on pull-to-refresh. |
-| `Reminders.kt` | One alarm per (match, lead) (1 d / 1 h / 5 min), exact if allowed. `ReminderReceiver` re-checks the match before notifying; "Mute this match" action; `BootReceiver` rebuilds after reboot/update/time-zone change. One channel per lead. |
+| `Reminders.kt` | One alarm per (match, lead) (1 d / 1 h / 5 min), exact if allowed; one notification per match (each lead replaces it, kept until dismissed or 24 h after kick-off) so the launcher badge counts matches. `ReminderReceiver` re-checks the match before notifying; "Mute this match" action; `BootReceiver` rebuilds after reboot/update/time-zone change. One channel per lead. |
 | `UpNextScreen.kt` | Home: next-reminder line, health cards (notifications / exact alarms / battery), day groups, match sheet with mute. |
 | `FollowingScreen.kt` | Follows (mode menu), Big matches switch, "What counts as big" page, team/player search sheet. |
 | `SettingsScreen.kt` | Reminder leads, reliability status, theme/pure black/font (+ Google Fonts browser), data source + token, update now. |
