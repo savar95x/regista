@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.5] - 2026-11-22
+
+- App icon: more space around the corner flag, so it sits comfortably in OxygenOS's icon circle.
+
 ## [0.4.4] - 2026-11-22
 
 - New icon: a corner flag (cream pole and ground line, coral flag). The notification icon matches.

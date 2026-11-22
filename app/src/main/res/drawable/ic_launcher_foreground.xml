@@ -6,16 +6,23 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:pathData="M41,76 L41,32 M41,76 L67,76"
-        android:strokeColor="#FFEEE7DC"
-        android:strokeWidth="7.6"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M45.5,33 L66,40.5 L45.5,48 Z"
-        android:fillColor="#FFE2957A"
-        android:strokeColor="#FFE2957A"
-        android:strokeWidth="5"
-        android:strokeLineJoin="round" />
+    <!-- Mark scaled down from the centre for padding: OxygenOS shows only the middle of the icon, so marks look oversized. -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.6"
+        android:scaleY="0.6">
+        <path
+            android:pathData="M41,76 L41,32 M41,76 L67,76"
+            android:strokeColor="#FFEEE7DC"
+            android:strokeWidth="7.6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M45.5,33 L66,40.5 L45.5,48 Z"
+            android:fillColor="#FFE2957A"
+            android:strokeColor="#FFE2957A"
+            android:strokeWidth="5"
+            android:strokeLineJoin="round" />
+    </group>
 </vector>
