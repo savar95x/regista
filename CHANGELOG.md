@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0] - 2026-11-24
+- Updates work the same way in all four of your apps now: checked whenever you open Regista, shown as a card on Up next and in Settings → About (never a pop-up). Update downloads once (resuming if cut off) and installs in one tap.
+- Pure black: the top bar stays black when you scroll, like your other apps.
+- Settings: every row has an icon, the same round tonal icons as Aria, Minutia, Hiatus and Regista.
+- Text uses Aria's styles: bolder titles, no stretched letter spacing.
+- Settings → Font is now a page like Aria's: any Google Font, with size, weight and letter spacing.
+
 ## [0.5.1] - 2026-11-22
 
 - **Badge-friendly reminders**: one notification per match. The day-before, hour-before and 5-minute reminders

@@ -1,5 +1,11 @@
 package dev.savar.regista
 
+import dev.savar.kit.AppFont
+import dev.savar.kit.FontSettings
+import dev.savar.kit.Kit
+import dev.savar.kit.Release
+import dev.savar.kit.Updates
+
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
@@ -72,6 +78,8 @@ class Screenshots {
     }
 
     private fun shot(name: String, mode: ThemeMode, black: Boolean = false, content: @Composable () -> Unit) {
+        Kit.init(RegistaKit)
+        AppFont.force(FontSettings())
         ThemePrefs.force(mode, black)
         compose.mainClock.autoAdvance = false
         compose.setContent { RegistaTheme { content() } }
@@ -95,9 +103,9 @@ class Screenshots {
 
     @Test fun update() {
         seed()
-        Updater.force(Updater.State.Available(Updater.Release("0.1.2", "- Faster\n- In-app updates", "", 2_740_000)))
+        Updates.force(Updates.State.Available(Release("0.1.2", "- Faster\n- In-app updates", "", 2_740_000)))
         shot("upnext_update", ThemeMode.DARK) { RegistaRoot(null, {}, preview = true, previewHealth = healthy) }
-        Updater.force(Updater.State.Idle)
+        Updates.force(Updates.State.Idle)
     }
 
     @Test fun appIcons() {
@@ -135,6 +143,9 @@ class Screenshots {
     }
 
     @Test fun big() { seed(); shot("big_light", ThemeMode.LIGHT) { RegistaRoot(null, {}, preview = true, startTab = Tab.FOLLOWING, startBig = true, previewHealth = healthy) } }
+
+    @org.robolectric.annotation.Config(qualifiers = "w411dp-h2000dp-xxhdpi")
+    @Test fun settingsBlack() { seed(); shot("settings_black_full", ThemeMode.DARK, black = true) { RegistaRoot(null, {}, preview = true, startTab = Tab.SETTINGS, previewHealth = healthy) } }
 
     @Test fun settings() { seed(); shot("settings_light", ThemeMode.LIGHT) { RegistaRoot(null, {}, preview = true, startTab = Tab.SETTINGS, previewHealth = Health(battery = false)) } }
 }

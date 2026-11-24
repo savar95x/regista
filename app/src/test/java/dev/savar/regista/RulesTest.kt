@@ -155,10 +155,10 @@ class RulesTest {
     }
 
     @Test fun versions() {
-        assertTrue(Updater.newer("0.1.10", "0.1.9"))
-        assertTrue(Updater.newer("v1.0.0", "0.9.99"))
-        assertTrue(!Updater.newer("0.1.1", "0.1.1"))
-        assertTrue(!Updater.newer("0.1.0", "0.1.1"))
+        assertTrue(dev.savar.kit.Updates.newer("0.1.10", "0.1.9"))
+        assertTrue(dev.savar.kit.Updates.newer("v1.0.0", "0.9.99"))
+        assertTrue(!dev.savar.kit.Updates.newer("0.1.1", "0.1.1"))
+        assertTrue(!dev.savar.kit.Updates.newer("0.1.0", "0.1.1"))
     }
 
     @Test fun search() {

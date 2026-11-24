@@ -26,6 +26,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.core.view.WindowCompat
+import dev.savar.kit.AppFont
+import dev.savar.kit.kitTypography
+import dev.savar.kit.pureBlack
 
 enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
 
@@ -64,22 +67,6 @@ object ThemePrefs {
     }
 }
 
-/**
- * AMOLED variant of a dark scheme (same recipe as Aria, Minutia and Hiatus): page #000, raised containers pulled
- * most of the way to black but keeping a hint of the wallpaper hue.
- */
-internal fun ColorScheme.pureBlack(): ColorScheme = copy(
-    background = Color.Black,
-    surface = Color.Black,
-    surfaceDim = Color.Black,
-    surfaceContainerLowest = Color.Black,
-    surfaceContainerLow = lerp(Color.Black, surfaceContainerLow, 0.45f),
-    surfaceContainer = lerp(Color.Black, surfaceContainer, 0.55f),
-    surfaceContainerHigh = lerp(Color.Black, surfaceContainerHigh, 0.65f),
-    surfaceContainerHighest = lerp(Color.Black, surfaceContainerHighest, 0.75f),
-    surfaceVariant = lerp(Color.Black, surfaceVariant, 0.7f),
-)
-
 @Composable
 internal fun isAppDark(): Boolean = when (ThemePrefs.mode) {
     ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -87,23 +74,13 @@ internal fun isAppDark(): Boolean = when (ThemePrefs.mode) {
     ThemeMode.DARK -> true
 }
 
-private fun Typography.withFont(f: FontFamily): Typography {
-    fun TextStyle.f() = copy(fontFamily = f)
-    return Typography(
-        displayLarge = displayLarge.f(), displayMedium = displayMedium.f(), displaySmall = displaySmall.f(),
-        headlineLarge = headlineLarge.f(), headlineMedium = headlineMedium.f(), headlineSmall = headlineSmall.f(),
-        titleLarge = titleLarge.f(), titleMedium = titleMedium.f(), titleSmall = titleSmall.f(),
-        bodyLarge = bodyLarge.f(), bodyMedium = bodyMedium.f(), bodySmall = bodySmall.f(),
-        labelLarge = labelLarge.f(), labelMedium = labelMedium.f(), labelSmall = labelSmall.f(),
-    )
-}
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RegistaTheme(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
     ThemePrefs.load(ctx)
-    Fonts.load(ctx)
+    // App font: the kit's, migrating the Google Font Regista used before (prefs "fonts"/"family").
+    AppFont.load(ctx) { ctx.getSharedPreferences("fonts", Context.MODE_PRIVATE).getString("family", null) }
     val dark = isAppDark()
     val base = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
@@ -111,8 +88,8 @@ fun RegistaTheme(content: @Composable () -> Unit) {
         else -> lightColorScheme()
     }
     val scheme = if (dark && ThemePrefs.pureBlack) base.pureBlack() else base
-    val font = Fonts.fontFamily
-    val typography = remember(font) { font?.let { Typography().withFont(it) } ?: Typography() }
+    val font = AppFont.settings
+    val typography = remember(font) { kitTypography(font) }
     val activity = ctx as? android.app.Activity
     val view = LocalView.current
     SideEffect {
