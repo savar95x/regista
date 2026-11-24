@@ -94,7 +94,10 @@ fun UpdateCard(
                     maxLines = if (expanded) Int.MAX_VALUE else 4,
                     overflow = TextOverflow.Ellipsis,
                 )
-                TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp), shape = buttonShape) {
+                TextButton(
+                    onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp), shape = buttonShape,
+                    colors = ButtonDefaults.textButtonColors(contentColor = on),
+                ) {
                     Text(if (expanded) "Less" else "What's new")
                 }
             } else Spacer(Modifier.height(12.dp))
@@ -127,7 +130,10 @@ fun UpdateCard(
                                 },
                             )
                         }
-                        TextButton(onClick = { Updates.later += release.version; hidden = true }, shape = buttonShape) { Text("Later") }
+                        TextButton(
+                            onClick = { Updates.later += release.version; hidden = true }, shape = buttonShape,
+                            colors = ButtonDefaults.textButtonColors(contentColor = on),
+                        ) { Text("Later") }
                     }
                 }
             }
