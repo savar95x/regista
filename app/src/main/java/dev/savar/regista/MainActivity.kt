@@ -1,5 +1,9 @@
 package dev.savar.regista
 
+import dev.savar.kit.Kit
+import dev.savar.kit.KitApp
+import dev.savar.kit.Updates
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
@@ -48,9 +52,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 
+/** What the shared kit needs to know about Regista. */
+val RegistaKit = KitApp(name = "Regista", repo = "savar95x/regista", apkName = { "Regista-$it.apk" })
+
 class RegistaApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        Kit.init(RegistaKit)
         Store.load(this)
         Reminders.createChannels(this)
         Sync.schedulePeriodic(this)
@@ -119,8 +127,7 @@ fun RegistaRoot(
         health = readHealth(ctx)
         Reminders.rescheduleAsync(ctx)
         Sync.syncIfStale(ctx)
-        Updater.checkIfDue(ctx)
-        Updater.resumeAfterPermission(ctx)
+        Updates.onResume(ctx) // a newer release shows as a card on Up next
         // First launch: notifications are the whole point, so ask straight away (Android 13+).
         if (Build.VERSION.SDK_INT >= 33 && !health.notifications && !prefs.getBoolean("asked_notifications", false)) {
             prefs.edit().putBoolean("asked_notifications", true).apply()

@@ -2,6 +2,26 @@
 
 package dev.savar.regista
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.savar.kit.AppFont
+import dev.savar.kit.FontPageContent
+import dev.savar.kit.FontRow
+import dev.savar.kit.FontSample
+import dev.savar.kit.FontSettings
+import dev.savar.kit.PureBlackRow
+import dev.savar.kit.ThemeRow
+import dev.savar.kit.TypefaceContent
+import dev.savar.kit.UpdateRow
+
 import android.content.Intent
 import android.graphics.Typeface
 import android.provider.Settings as AndroidSettings
@@ -89,6 +109,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
+/** Sub-pages of Settings: the app font, and its typeface list. */
+private enum class SettingsPage(val depth: Int) { FONT(1), TYPEFACE(2) }
+
+/** Sample lines in the font preview. */
+private val FONT_SAMPLE = FontSample("Real Madrid v Barcelona", "LaLiga · Sat 8:30 PM · in 2 days", "Up next")
+
 @Composable
 fun SettingsScreen(
     health: Health,
@@ -99,14 +125,44 @@ fun SettingsScreen(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val s = Store.settings
-    var fontSheet by remember { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    val back: () -> Unit = { page = if (page == SettingsPage.TYPEFACE) SettingsPage.FONT else null }
+    BackHandler(page != null) { back() }
+    var fontMenu by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
     var sourceDialog by remember { mutableStateOf(false) }
     var tokenDialog by remember { mutableStateOf(false) }
     var aheadDialog by remember { mutableStateOf(false) }
     var iconSheet by remember { mutableStateOf(false) }
     var appIcon by remember { mutableStateOf(AppIcon.current(ctx)) }
 
-    Page("Settings") { pad ->
+    AnimatedContent(
+        targetState = page,
+        transitionSpec = {
+            // Material shared axis X, like the sibling apps: deeper pages come in from the right.
+            val dir = if ((targetState?.depth ?: 0) > (initialState?.depth ?: 0)) 1 else -1
+            (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { w -> dir * w / 6 } + fadeIn(tween(220, delayMillis = 60)))
+                .togetherWith(slideOutHorizontally(tween(320, easing = FastOutSlowInEasing)) { w -> -dir * w / 6 } + fadeOut(tween(120)))
+        },
+        label = "settings",
+    ) { shown ->
+    when (shown) {
+        SettingsPage.FONT -> Page("Font", onBack = back, actions = {
+            Box {
+                IconButton(onClick = { fontMenu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                DropdownMenu(expanded = fontMenu, onDismissRequest = { fontMenu = false }) {
+                    DropdownMenuItem(text = { Text("Reset to defaults") }, onClick = { fontMenu = false; confirmReset = true })
+                }
+            }
+        }) { pad ->
+            FontPageContent(AppFont.settings, FONT_SAMPLE, onTypeface = { page = SettingsPage.TYPEFACE },
+                onChange = { AppFont.set(ctx, it) }, modifier = Modifier.padding(pad))
+        }
+        SettingsPage.TYPEFACE -> Page("Typeface", onBack = back) { pad ->
+            TypefaceContent(AppFont.settings.font, onPick = { AppFont.set(ctx, AppFont.settings.copy(font = it)) },
+                modifier = Modifier.padding(pad))
+        }
+        null -> Page("Settings") { pad ->
     Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Group("Reminders") {
@@ -145,24 +201,10 @@ fun SettingsScreen(
             }
 
             Group("Look") {
+                item { ThemeRow(ThemePrefs.mode.ordinal) { ThemePrefs.setMode(ctx, ThemeMode.entries[it]) } }
+                item { PureBlackRow(ThemePrefs.pureBlack, enabled = isAppDark()) { ThemePrefs.setPureBlack(ctx, it) } }
                 item {
-                    Pad {
-                        Text("Theme", style = MaterialTheme.typography.bodyLarge)
-                        Spacer(Modifier.height(12.dp))
-                        Segmented(ThemeMode.entries, ThemePrefs.mode, { it.label }) { ThemePrefs.setMode(ctx, it) }
-                    }
-                }
-                item {
-                    SwitchRow(
-                        "Pure black",
-                        ThemePrefs.pureBlack,
-                        enabled = isAppDark(),
-                        icon = Icons.Rounded.Contrast,
-                        summary = "For AMOLED screens, in dark theme",
-                    ) { ThemePrefs.setPureBlack(ctx, it) }
-                }
-                item {
-                    NavRow(Icons.Rounded.FontDownload, "Font", Fonts.family.ifBlank { "System default" }) { fontSheet = true }
+                    FontRow(AppFont.settings) { page = SettingsPage.FONT }
                 }
                 item { AppIconRow(appIcon) { iconSheet = true } }
             }
@@ -196,31 +238,7 @@ fun SettingsScreen(
             }
 
             Group("About") {
-                item {
-                    val version = remember {
-                        runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
-                    }
-                    val u = Updater.state
-                    NavRow(
-                        Icons.Rounded.SystemUpdate,
-                        "Regista $version",
-                        when (u) {
-                            is Updater.State.Available -> "Update available: ${u.release.version}"
-                            is Updater.State.Ready -> "${u.release.version} downloaded, tap to install"
-                            is Updater.State.Downloading -> "Downloading ${u.release.version}… ${(u.progress * 100).toInt()}%"
-                            is Updater.State.Installing -> "Installing ${u.release.version}…"
-                            is Updater.State.Failed -> "Update failed: ${u.message}"
-                            Updater.State.UpToDate -> Updater.checkError?.let { "Couldn't check: $it" } ?: "Up to date · checked ${Fmt.ago(Updater.lastCheck)}"
-                            Updater.State.Idle -> Updater.checkError?.let { "Couldn't check: $it · tap to retry" } ?: "Tap to check for updates"
-                        },
-                    ) {
-                        when (u) {
-                            is Updater.State.Available, is Updater.State.Ready, is Updater.State.Failed -> Updater.update(ctx)
-                            is Updater.State.Downloading, is Updater.State.Installing -> Unit
-                            else -> Updater.check(ctx)
-                        }
-                    }
-                }
+                item { UpdateRow() }
                 item {
                     NavRow(Icons.Rounded.Code, "Source code", "github.com/savar95x/regista") {
                         openUrl(ctx, "https://github.com/savar95x/regista")
@@ -239,8 +257,18 @@ fun SettingsScreen(
         }
     }
     }
+    }
+    }
 
-    if (fontSheet) FontSheet { fontSheet = false }
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text("Reset font settings?") },
+            text = { Text("Typeface, size, weight and letter spacing go back to their defaults.") },
+            confirmButton = { TextButton(onClick = { AppFont.set(ctx, FontSettings()); confirmReset = false }) { Text("Reset") } },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
+        )
+    }
     if (iconSheet) AppIconSheet(appIcon, onPick = { AppIcon.set(ctx, it); appIcon = it }, onDismiss = { iconSheet = false })
     if (aheadDialog) {
         AlertDialog(
@@ -381,165 +409,6 @@ private fun StatusRow(
         if (ok) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary)
     }
 }
-
-/**
- * Font picker: System default, a short list of picks (each shown in its own face), and "More fonts" for the full
- * Google Fonts catalogue. Picking downloads in place with a spinner on that row; the sheet closes when it's applied.
- */
-@Composable
-fun FontSheet(onDismiss: () -> Unit) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var busy by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var browse by remember { mutableStateOf(false) }
-
-    fun apply(name: String?) {
-        if (busy != null) return
-        error = null
-        if (name == null) { Fonts.useSystem(ctx); onDismiss(); return }
-        if (Fonts.family.equals(name, true)) { onDismiss(); return }
-        busy = name
-        scope.launch {
-            Fonts.use(ctx, name)
-                .onSuccess { busy = null; onDismiss() }
-                .onFailure { busy = null; error = it.message ?: "Couldn't download $name" }
-        }
-    }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
-            Text("Font", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp))
-            FontChoice("System default", null, selected = Fonts.family.isBlank(), busy = false) { apply(null) }
-            val shown = (Fonts.picks + listOfNotNull(Fonts.family.takeIf { f -> f.isNotBlank() && Fonts.picks.none { it.equals(f, true) } }))
-            shown.forEach { name ->
-                FontChoice(name, name, selected = Fonts.family.equals(name, true), busy = busy == name) { apply(name) }
-            }
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { browse = true }.padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(16.dp))
-                Text("More fonts", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            error?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            }
-        }
-    }
-    if (browse) FontBrowserSheet(selected = Fonts.family, onPick = { browse = false; apply(it) }, onDismiss = { browse = false })
-}
-
-/** One radio row; [family] null = system font. The name is drawn in its own face once a tiny preview arrives. */
-@Composable
-private fun FontChoice(label: String, family: String?, selected: Boolean, busy: Boolean, onClick: () -> Unit) {
-    val ctx = LocalContext.current
-    val tf by produceState<Typeface?>(null, family) { if (family != null) value = Fonts.previewTypeface(ctx, family) }
-    val face = remember(tf) { tf?.let { FontFamily(it) } }
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-            if (busy) LoadingIndicator(Modifier.size(24.dp)) else RadioButton(selected = selected, onClick = null)
-        }
-        Spacer(Modifier.width(16.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyLarge,
-            fontFamily = if (family == null) FontFamily.Default else face,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-private val CATEGORIES = listOf(
-    "All" to null,
-    "Sans" to "Sans Serif",
-    "Serif" to "Serif",
-    "Display" to "Display",
-    "Mono" to "Monospace",
-    "Handwriting" to "Handwriting",
-)
-
-/** Every Google Fonts family, searchable and filterable, each previewed in its own face. */
-@Composable
-fun FontBrowserSheet(selected: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
-    val ctx = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val families by produceState(Fonts.cachedFamilies(ctx)) { value = Fonts.loadCatalogue(ctx) }
-    var query by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf<String?>(null) }
-    val shown = remember(families, query, category) {
-        val q = query.trim().lowercase().replace(" ", "")
-        families.filter { f ->
-            (category == null || f.category == category) && (q.isEmpty() || f.name.lowercase().replace(" ", "").contains(q))
-        }
-    }
-    val listState = rememberLazyListState()
-    LaunchedEffect(query, category) { listState.scrollToItem(0) }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.fillMaxHeight(0.92f)) {
-            Text("Google Fonts", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp))
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
-                placeholder = { Text("Search ${if (families.isEmpty()) "" else "${families.size} "}fonts") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(CATEGORIES) { (label, value) -> Chip(selected = category == value, onClick = { category = value }) { Text(label) } }
-            }
-            HorizontalDivider()
-            if (families.isEmpty()) {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
-            }
-            LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
-                items(shown, key = { it.name }) { fam -> FontRow(fam, fam.name.equals(selected, ignoreCase = true)) { onPick(fam.name) } }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FontRow(fam: Fonts.Family, isSelected: Boolean, onClick: () -> Unit) {
-    val ctx = LocalContext.current
-    val tf by produceState<Typeface?>(null, fam.name) { value = Fonts.previewTypeface(ctx, fam.name) }
-    val family = remember(tf) { tf?.let { FontFamily(it) } }
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                fam.name,
-                style = MaterialTheme.typography.titleLarge,
-                fontFamily = family,
-                color = if (family == null) scheme.onSurfaceVariant else scheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                Fonts.PREVIEW_TEXT,
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = family,
-                color = scheme.onSurfaceVariant,
-            )
-        }
-        if (isSelected) Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = scheme.primary)
-    }
-}
-
 
 /** Launcher-style tile for an app icon: the family's dark tile with the mark, cropped like a launcher does. */
 @Composable

@@ -80,6 +80,8 @@ dependencies {
     // Pinned past the BOM: the BOM's stable material3 keeps the Expressive APIs internal.
     implementation("androidx.compose.material3:material3:1.5.0-alpha27")
     implementation("androidx.compose.material:material-icons-extended")
+    // Shared kit (dev.savar.kit): app font via Play Services downloadable Google Fonts.
+    implementation("androidx.compose.ui:ui-text-google-fonts")
     implementation("androidx.graphics:graphics-shapes:1.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
