@@ -12,6 +12,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import dev.savar.kit.AppFont
 import dev.savar.kit.FontPageContent
 import dev.savar.kit.FontRow
