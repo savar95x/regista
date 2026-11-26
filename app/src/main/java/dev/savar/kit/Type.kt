@@ -53,44 +53,29 @@ fun googleFontFamily(name: String): FontFamily = synchronized(fontCache) {
     }
 }
 
-/** Material's default sizes read a bit large on a dense phone screen: every style is scaled down a little. */
-private const val BASE_SCALE = 0.92f
-
 /**
- * The text styles all four apps share (Aria's, which the owner tuned). Material leaves almost everything at
- * Regular, so nothing stands out; here headlines are Bold, titles SemiBold, primary text (row titles, buttons)
- * Medium and secondary text Regular. The weight setting shifts them all together. Letter spacing is 0 for
- * body/title/label text (Material's +0.1..+0.5sp reads stretched), keeping the tighter tracking of display text.
+ * The text styles all four apps share: Material 3's own type scale, untouched by default (sizes, weights,
+ * line heights and letter spacing as Google ships them). The owner tried Aria's bolder, tighter, 8% smaller
+ * styles in all four apps (Nov 2026) and found them off at normal screen density, so stock Material it is.
+ * The font settings only apply on top: a Google Font, size ×, weight ± and letter spacing (when not 0).
  */
 fun kitTypography(s: FontSettings): Typography {
-    val family = s.font?.let { googleFontFamily(it) }
     val base = Typography()
-    val scale = BASE_SCALE * s.textScale
-    fun TextStyle.f(weight: Int) = copy(
+    if (s == FontSettings()) return base
+    val family = s.font?.let { googleFontFamily(it) }
+    fun TextStyle.f() = copy(
         fontFamily = family ?: fontFamily,
-        fontSize = fontSize * scale,
-        lineHeight = if (lineHeight.isSpecified) lineHeight * scale else lineHeight,
-        fontWeight = FontWeight((weight + s.weightDelta).coerceIn(100, 900)),
-        letterSpacing = if (s.letterSpacing == 0f) {
-            if (letterSpacing.isSpecified && letterSpacing.value < 0f) letterSpacing else 0.sp
-        } else s.letterSpacing.sp,
+        fontSize = fontSize * s.textScale,
+        lineHeight = if (lineHeight.isSpecified) lineHeight * s.textScale else lineHeight,
+        fontWeight = FontWeight(((fontWeight ?: FontWeight.Normal).weight + s.weightDelta).coerceIn(100, 900)),
+        letterSpacing = if (s.letterSpacing == 0f) letterSpacing else s.letterSpacing.sp,
     )
     return Typography(
-        displayLarge = base.displayLarge.f(600),
-        displayMedium = base.displayMedium.f(600),
-        displaySmall = base.displaySmall.f(600),
-        headlineLarge = base.headlineLarge.f(700),
-        headlineMedium = base.headlineMedium.f(700),
-        headlineSmall = base.headlineSmall.f(700),
-        titleLarge = base.titleLarge.f(600),
-        titleMedium = base.titleMedium.f(500),
-        titleSmall = base.titleSmall.f(600),
-        bodyLarge = base.bodyLarge.f(500),
-        bodyMedium = base.bodyMedium.f(400),
-        bodySmall = base.bodySmall.f(400),
-        labelLarge = base.labelLarge.f(500),
-        labelMedium = base.labelMedium.f(500),
-        labelSmall = base.labelSmall.f(500),
+        displayLarge = base.displayLarge.f(), displayMedium = base.displayMedium.f(), displaySmall = base.displaySmall.f(),
+        headlineLarge = base.headlineLarge.f(), headlineMedium = base.headlineMedium.f(), headlineSmall = base.headlineSmall.f(),
+        titleLarge = base.titleLarge.f(), titleMedium = base.titleMedium.f(), titleSmall = base.titleSmall.f(),
+        bodyLarge = base.bodyLarge.f(), bodyMedium = base.bodyMedium.f(), bodySmall = base.bodySmall.f(),
+        labelLarge = base.labelLarge.f(), labelMedium = base.labelMedium.f(), labelSmall = base.labelSmall.f(),
     )
 }
 

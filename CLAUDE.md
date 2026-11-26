@@ -7,7 +7,7 @@ Sibling projects with the same conventions: `savar95x/hiatus`, `savar95x/minutia
 
 ## Shared kit (`dev.savar.kit`, Nov 2026)
 Aria, Minutia, Hiatus and Regista share byte-identical files in `app/src/main/java/dev/savar/kit/` (updater +
-update card/row, top bar colours, pure black, settings rows with tonal icons, Aria's text styles, app font page +
+update card/row, top bar colours, pure black, settings rows with tonal icons, stock Material 3 text styles, app font page +
 typeface picker). **Never edit them in one repo only**: change, copy to all four, ship all four. See
 [`docs/KIT.md`](docs/KIT.md); `scripts/kit-check.sh` diffs against the other repos. Owner decisions (Nov 2026): icons on
 every settings row; in pure black the top bar stays black when scrolled; updates only as a card, never a pop-up;
