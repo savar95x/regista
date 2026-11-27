@@ -6,6 +6,12 @@
 
 <p align="center"><a href="../../releases/latest"><b>Download the latest APK</b></a></p>
 
+<p align="center">
+  <img src="docs/screenshots/up-next.webp" width="270" alt="Up next: upcoming matches grouped by day, each with why you are reminded" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/following.webp" width="270" alt="Following: teams on Every match or Big games only, and Big matches" />
+</p>
+
 Regista tells you a day, an hour and 5 minutes before kick-off, then gets out of the way. It covers the teams you
 follow and the big games you'd hate to miss, even between teams you don't follow.
 
